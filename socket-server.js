@@ -370,6 +370,17 @@ io.on("connection", async (socket) => {
 
       console.log(`[Pool] ${fallbackName} joined pool ${gameId}. Players: ${game.players.length}/6`);
 
+      // Auto-start the game when minimum players reached
+      try {
+        if (game.players.length >= 2 && game.phase === 'waiting') {
+          console.log(`[AutoStart] Pool ${gameId} reached ${game.players.length} players — starting game`);
+          gameManager.startGame(gameId);
+          emitAdminPools();
+        }
+      } catch (err) {
+        console.error('[AutoStart] Failed to auto-start game:', err);
+      }
+
     } catch (error) {
       console.error('[join_game] Error:', error);
       socket.emit('error', { message: error.message });

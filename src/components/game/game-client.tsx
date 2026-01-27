@@ -200,7 +200,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
       </div>
 
       {/* 2D Overlay */}
-      <div className="absolute inset-0 z-10 pointer-events-none">
+      <div className="absolute inset-0 z-10 pointer-events-auto">
         <GameUI gameState={gameState} gameId={gameId} joinPending={joinPending} joinError={joinError} joinStatus={joinStatus} />
       </div>
     </div>
