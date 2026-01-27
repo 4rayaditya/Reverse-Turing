@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  password     String
+  name         String?
+  points       Int      @default(1000)
+  avatar       String?
+  isAdmin      Boolean  @default(false)
+  gamesPlayed  Int      @default(0)
+  wins         Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt @default(now())
+
+  // Relations
+  bets          Bet[]
+  rounds        Round[] // Rounds where this user was the "receiver"
+  poolsIncluded Pool[] // Pools this user is part of (simplification: user can be in one active pool)
+}
+
+model Pool {
+  id        String   @id @default(uuid())
+  name      String
+  status    String   @default("waiting") // waiting, active, finished
+  createdAt DateTime @default(now())
+
+  users User[]
+  games Game[]
+}
+
+model Game {
+  id        String   @id @default(uuid())
+  poolId    String
+  pool      Pool     @relation(fields: [poolId], references: [id])
+  status    String   @default("waiting") // waiting, active, finished
+  createdAt DateTime @default(now())
+  
+  rounds Round[]
+}
+
+model Round {
+  id             String   @id @default(uuid())
+  gameId         String
+  game           Game     @relation(fields: [gameId], references: [id])
+  receiverUserId String
+  receiver       User     @relation(fields: [receiverUserId], references: [id])
+  
+  question       String
+  answer         String?
+  correctLabel   String? // 'human' | 'ai'
+  
+  status         String   @default("betting") // betting, revealed
+  createdAt      DateTime @default(now())
+  endedAt        DateTime?
+
+  bets Bet[]
+}
+
+model Bet {
+  id        String   @id @default(uuid())
+  roundId   String
+  round     Round    @relation(fields: [roundId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  amount    Int
+  guess     String // 'human' | 'ai'
+  result    String? // 'win' | 'lose' | 'push'
+  payout    Int      @default(0)
+  
+  createdAt DateTime @default(now())
+}
