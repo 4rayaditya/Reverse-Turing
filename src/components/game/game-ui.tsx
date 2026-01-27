@@ -10,33 +10,42 @@ export function GameUI({
   gameState,
   gameId,
   joinPending,
-  joinError
+  joinError,
+  joinStatus
 }: {
   gameState: any
   gameId: string
   joinPending?: boolean
   joinError?: string | null
+  joinStatus?: 'idle' | 'pending' | 'approved' | 'denied'
 }) {
   const { socket } = useSocket()
   const { data: session } = useSession()
   const [betAmount, setBetAmount] = useState(50)
   const [answerText, setAnswerText] = useState("")
   const [selectedBet, setSelectedBet] = useState<number | null>(null)
-  const [timeLeft, setTimeLeft] = useState<number>(0)
+  const [timeLeftMs, setTimeLeftMs] = useState<number>(0)
+  const isAdmin = (session?.user as any)?.isAdmin || session?.user?.email === "ray@gmail.com"
   
   useEffect(() => {
-    if (gameState?.phase === "answering") {
-      setTimeLeft(120) // 2 minutes
+    const timerMs = gameState?.timer?.timerRemainingMs
+    if (typeof timerMs === "number") {
+      setTimeLeftMs(timerMs)
+    } else if (gameState?.phase === "answering") {
+      setTimeLeftMs(120000)
     } else if (gameState?.phase === "betting") {
-      setTimeLeft(60) // 1 minute
+      setTimeLeftMs(60000)
     }
-    
+
     const interval = setInterval(() => {
-      setTimeLeft((prev) => Math.max(0, prev - 1))
+      setTimeLeftMs((prev) => {
+        if (gameState?.timer?.timerPaused) return prev
+        return Math.max(0, prev - 1000)
+      })
     }, 1000)
-    
+
     return () => clearInterval(interval)
-  }, [gameState?.phase])
+  }, [gameState?.phase, gameState?.timer?.timerRemainingMs, gameState?.timer?.timerPaused])
   
   if (!gameState) {
     return (
@@ -61,7 +70,9 @@ export function GameUI({
   const userId = session?.user?.id
   const isAnswerer = gameState.currentRound?.answerer === userId
   const currentPlayer = gameState.players?.find((p: any) => p.userId === userId)
-  const hasBet = gameState.bets && gameState.bets[userId || ""]
+  const myBet = userId ? gameState.bets?.[userId] : null
+  const hasBet = !!myBet
+  const timeLeftSeconds = Math.ceil(timeLeftMs / 1000)
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -70,21 +81,23 @@ export function GameUI({
   }
 
   const handleBet = (choice: 'A' | 'B') => {
-      if (!userId || !selectedBet) return
+      if (!socket || !userId || !selectedBet) return
       socket.emit("place_bet", { gameId, userId, amount: selectedBet, guess: choice })
   }
 
   const handleSubmitAnswer = () => {
-    if (!userId || !answerText.trim()) return
+    if (!socket || !userId || !answerText.trim()) return
     socket.emit("submit_answer", { gameId, userId, answer: answerText })
     setAnswerText("")
   }
 
   const handleReveal = (actualType: 'human' | 'ai') => {
+    if (!socket) return
     socket.emit("reveal_round", { gameId, actualType })
   }
 
   const handleStartGame = () => {
+    if (!socket) return
     socket.emit("start_game", { gameId })
   }
 
@@ -108,8 +121,8 @@ export function GameUI({
             <div>Phase: <span className="text-purple-400 font-semibold capitalize">{gameState.phase || "Waiting"}</span></div>
             <div>Players: {gameState.players?.length || 0}</div>
             {(gameState.phase === "answering" || gameState.phase === "betting") && (
-              <div className={`text-lg font-mono font-bold ${timeLeft <= 10 ? 'text-red-400 animate-pulse' : 'text-yellow-300'}`}>
-                ⏱️ {formatTime(timeLeft)}
+              <div className={`text-lg font-mono font-bold ${timeLeftSeconds <= 10 ? 'text-red-400 animate-pulse' : 'text-yellow-300'}`}>
+                ⏱️ {formatTime(timeLeftSeconds)} {gameState?.timer?.timerPaused ? '(Paused)' : ''}
               </div>
             )}
           </div>
@@ -184,7 +197,7 @@ export function GameUI({
                 <div className="bg-gradient-to-br from-blue-900/50 to-blue-800/30 p-5 rounded-2xl border-2 border-blue-400/40">
                   <div className="text-blue-300 font-bold text-lg mb-3">🅰️ ANSWER A</div>
                   <p className="text-lg italic font-serif text-white leading-relaxed">
-                    "{gameState.currentRound.answerA}"
+                    &quot;{gameState.currentRound.answerA}&quot;
                   </p>
                 </div>
                 
@@ -192,7 +205,7 @@ export function GameUI({
                 <div className="bg-gradient-to-br from-purple-900/50 to-purple-800/30 p-5 rounded-2xl border-2 border-purple-400/40">
                   <div className="text-purple-300 font-bold text-lg mb-3">🅱️ ANSWER B</div>
                   <p className="text-lg italic font-serif text-white leading-relaxed">
-                    "{gameState.currentRound.answerB}"
+                    &quot;{gameState.currentRound.answerB}&quot;
                   </p>
                 </div>
               </div>
@@ -218,11 +231,11 @@ export function GameUI({
               <div className="grid grid-cols-2 gap-4 mb-5">
                 <div className="bg-white/10 p-4 rounded-xl">
                   <div className="text-sm text-emerald-300 font-bold mb-2">✅ Human Answer:</div>
-                  <div className="text-white italic text-sm">"{gameState.lastResult.humanAnswer}"</div>
+                  <div className="text-white italic text-sm">&quot;{gameState.lastResult.humanAnswer}&quot;</div>
                 </div>
                 <div className="bg-white/10 p-4 rounded-xl">
                   <div className="text-sm text-red-300 font-bold mb-2">🤖 AI Answer:</div>
-                  <div className="text-white italic text-sm">"{gameState.lastResult.aiAnswer}"</div>
+                  <div className="text-white italic text-sm">&quot;{gameState.lastResult.aiAnswer}&quot;</div>
                 </div>
               </div>
               {gameState.lastResult.winners.length > 0 ? (
@@ -249,7 +262,7 @@ export function GameUI({
               className="text-center"
             >
               <div className="text-white text-2xl mb-4">Waiting for players...</div>
-              {gameState.players?.length >= 2 && (
+              {isAdmin && gameState.players?.length >= 2 && (
                 <Button 
                   onClick={handleStartGame}
                   className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 text-white text-xl font-bold py-6 px-12 rounded-2xl"
@@ -344,7 +357,7 @@ export function GameUI({
                         Selected: {selectedBet} points
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <motion.div 
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
@@ -378,7 +391,7 @@ export function GameUI({
                   <div className="text-3xl mb-3">✅</div>
                   <div className="text-white text-xl font-bold">Bet Placed!</div>
                   <div className="text-purple-300 text-base mt-2">
-                    {gameState.bets[userId].amount} points on Answer {gameState.bets[userId].guess}
+                    {myBet?.amount} points on Answer {myBet?.guess}
                   </div>
                   <div className="text-slate-400 text-sm mt-3">
                     Waiting for other players...

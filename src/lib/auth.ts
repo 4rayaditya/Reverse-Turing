@@ -64,13 +64,15 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string
         session.user.name = token.username as string
         session.user.email = token.email as string
+        ;(session.user as any).isAdmin = token.isAdmin as boolean
         
         // Generate JWT token for Socket.io authentication
         const accessToken = jwt.sign(
           {
             sub: token.id as string,
             email: token.email as string,
-            name: token.username as string
+            name: token.username as string,
+            isAdmin: token.isAdmin as boolean
           },
           process.env.NEXTAUTH_SECRET!,
           { expiresIn: '7d' }

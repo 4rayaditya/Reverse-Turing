@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
+import { useSocket } from "@/components/providers/socket-provider"
 
 interface User {
   id: string
@@ -21,13 +22,33 @@ interface Game {
   _count: { rounds: number }
 }
 
+interface AdminPool {
+  poolId: string
+  phase: string
+  ownerId?: string | null
+  players: { userId: string; name: string; points: number; isConnected: boolean }[]
+  pendingRequests: { userId: string; name: string; requestedAt: number }[]
+  currentRound?: { question: string; answerer: string } | null
+  timer?: { timerKind?: string | null; timerPaused?: boolean; timerRemainingMs?: number | null }
+}
+
+interface JoinRequest {
+  poolId: string
+  userId: string
+  name: string
+  requestedAt: number
+}
+
 export default function AdminDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const { socket } = useSocket()
   const [users, setUsers] = useState<User[]>([])
   const [games, setGames] = useState<Game[]>([])
+  const [pools, setPools] = useState<AdminPool[]>([])
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"users" | "games">("users")
+  const [activeTab, setActiveTab] = useState<"users" | "games" | "pools">("users")
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -36,10 +57,35 @@ export default function AdminDashboard() {
   }, [status, router])
 
   useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      const isAdmin = (session.user as any).isAdmin || session.user.email === "ray@gmail.com"
+      if (!isAdmin) {
+        router.push("/")
+      }
+    }
+  }, [status, session, router])
+
+  useEffect(() => {
     if (session?.user) {
       fetchData()
     }
   }, [session])
+
+  useEffect(() => {
+    if (!socket || !session?.user) return
+
+    const onAdminPools = (payload: any) => {
+      setPools(payload.pools || [])
+    }
+
+    socket.on("admin_pools", onAdminPools)
+
+    socket.emit("admin_get_pools")
+
+    return () => {
+      socket.off("admin_pools", onAdminPools)
+    }
+  }, [socket, session])
 
   const fetchData = async () => {
     try {
@@ -76,6 +122,22 @@ export default function AdminDashboard() {
     if (res.ok) {
       setUsers(users.map((u) => (u.id === userId ? { ...u, points: newPoints } : u)))
     }
+  }
+
+  const handleStartGame = (poolId: string) => {
+    socket?.emit("start_game", { gameId: poolId })
+  }
+
+  const handlePauseGame = (poolId: string) => {
+    socket?.emit("pause_game", { gameId: poolId })
+  }
+
+  const handleResumeGame = (poolId: string) => {
+    socket?.emit("resume_game", { gameId: poolId })
+  }
+
+  const handleAddTime = (poolId: string, userId: string, seconds: number) => {
+    socket?.emit("add_time", { gameId: poolId, userId, seconds })
   }
 
   if (status === "loading" || loading) {
@@ -117,6 +179,16 @@ export default function AdminDashboard() {
             }`}
           >
             Games ({games.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("pools")}
+            className={`px-6 py-3 rounded-lg font-medium transition-all ${
+              activeTab === "pools"
+                ? "bg-purple-600 text-white"
+                : "bg-slate-800/50 text-slate-400 hover:bg-slate-800"
+            }`}
+          >
+            Live Pools ({pools.length})
           </button>
         </div>
 
@@ -226,6 +298,95 @@ export default function AdminDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Live Pools Tab */}
+        {activeTab === "pools" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="backdrop-blur-xl bg-slate-900/40 rounded-xl border border-purple-500/20 p-6">
+              <h2 className="text-xl font-semibold text-white mb-4">Live Pools</h2>
+              {pools.length === 0 ? (
+                <div className="text-slate-400">No active pools</div>
+              ) : (
+                <div className="space-y-4">
+                  {pools.map((pool) => {
+                    const answerer = pool.players.find(p => p.userId === pool.currentRound?.answerer)
+                    const timerSeconds = Math.ceil((pool.timer?.timerRemainingMs || 0) / 1000)
+                    return (
+                      <div key={pool.poolId} className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                          <div>
+                            <div className="text-white font-semibold">Pool {pool.poolId.slice(0, 8)}…</div>
+                            <div className="text-sm text-slate-400">Phase: {pool.phase}</div>
+                          </div>
+                          <div className="flex gap-2">
+                            {pool.phase === "waiting" && pool.players.length >= 2 && (
+                              <button
+                                onClick={() => handleStartGame(pool.poolId)}
+                                className="px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded text-sm"
+                              >
+                                Start
+                              </button>
+                            )}
+                            {pool.timer?.timerKind && !pool.timer?.timerPaused && (
+                              <button
+                                onClick={() => handlePauseGame(pool.poolId)}
+                                className="px-3 py-1 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 rounded text-sm"
+                              >
+                                Pause
+                              </button>
+                            )}
+                            {pool.timer?.timerPaused && (
+                              <button
+                                onClick={() => handleResumeGame(pool.poolId)}
+                                className="px-3 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded text-sm"
+                              >
+                                Resume
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-3 text-sm text-slate-300">
+                          Players: {pool.players.length} | Timer: {pool.timer?.timerKind ? `${timerSeconds}s${pool.timer?.timerPaused ? " (paused)" : ""}` : "-"}
+                        </div>
+
+                        {answerer && pool.phase === "answering" && (
+                          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                            <div className="text-slate-300">Answerer: <span className="text-white font-semibold">{answerer.name}</span></div>
+                            <button
+                              onClick={() => handleAddTime(pool.poolId, answerer.userId, 15)}
+                              className="px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded text-sm"
+                            >
+                              +15s
+                            </button>
+                            <button
+                              onClick={() => handleAddTime(pool.poolId, answerer.userId, 30)}
+                              className="px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded text-sm"
+                            >
+                              +30s
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                          {pool.players.map((p) => (
+                            <div key={p.userId} className="text-sm text-slate-300 bg-slate-900/40 p-2 rounded">
+                              {p.name} — {p.points} pts {p.isConnected ? "" : "(disconnected)"}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </motion.div>
         )}

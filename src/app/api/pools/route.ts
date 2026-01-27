@@ -29,6 +29,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { isAdmin: true, email: true }
+  })
+
+  if (!user?.isAdmin && user?.email !== "ray@gmail.com") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
   const { name } = await req.json()
 
   const pool = await prisma.pool.create({

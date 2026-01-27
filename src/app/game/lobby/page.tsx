@@ -18,6 +18,7 @@ export default function LobbyPage() {
   const router = useRouter()
   const [pools, setPools] = useState<Pool[]>([])
   const [loading, setLoading] = useState(true)
+  const isAdmin = session?.user?.email === "ray@gmail.com" || session?.user?.isAdmin
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -89,7 +90,7 @@ export default function LobbyPage() {
               </motion.button>
             </Link>
             
-            {session?.user?.email === "ray@gmail.com" && (
+            {isAdmin && (
               <Link href="/admin">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -105,12 +106,16 @@ export default function LobbyPage() {
 
         {/* Create Pool Button */}
         <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleCreatePool}
-          className="w-full mb-6 p-6 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl text-white font-semibold text-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg"
+          whileHover={{ scale: isAdmin ? 1.02 : 1 }}
+          whileTap={{ scale: isAdmin ? 0.98 : 1 }}
+          onClick={isAdmin ? handleCreatePool : undefined}
+          className={`w-full mb-6 p-6 rounded-xl font-semibold text-lg transition-all shadow-lg ${
+            isAdmin
+              ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
+              : "bg-slate-800/60 text-slate-400 cursor-not-allowed"
+          }`}
         >
-          + Create New Game Pool
+          {isAdmin ? "+ Create New Game Pool" : "Only admin can create pools"}
         </motion.button>
 
         {/* Active Pools */}

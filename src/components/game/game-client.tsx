@@ -12,6 +12,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
   const [gameState, setGameState] = useState<any>(null)
   const [joinPending, setJoinPending] = useState(false)
   const [joinError, setJoinError] = useState<string | null>(null)
+  const [joinStatus, setJoinStatus] = useState<'idle' | 'pending' | 'approved' | 'denied'>('idle')
 
   useEffect(() => {
     if (!socket || !isConnected || !session?.user?.id) return
@@ -23,11 +24,13 @@ export default function GameClient({ gameId }: { gameId: string }) {
     const onJoined = (payload: any) => {
       setGameState(payload.game || payload)
       setJoinPending(false)
+      setJoinStatus('approved')
     }
 
     const onPoolCreated = (payload: any) => {
       setGameState(payload.game || payload)
       setJoinPending(false)
+      setJoinStatus('approved')
     }
 
     const onRoundStarted = (payload: any) => {
@@ -39,16 +42,22 @@ export default function GameClient({ gameId }: { gameId: string }) {
           ...(prev?.currentRound || {}),
           question: payload.question,
           answerer: payload.answererId
-        }
+        },
+        timer: payload.timer
       }))
     }
 
     const onAnswerSubmitted = (payload: any) => {
-      setGameState(prev => ({ ...(prev || {}), phase: payload.phase, currentRound: { ...(prev?.currentRound || {}), answerA: payload.answerA, answerB: payload.answerB } }))
+      setGameState(prev => ({
+        ...(prev || {}),
+        phase: payload.phase,
+        currentRound: { ...(prev?.currentRound || {}), answerA: payload.answerA, answerB: payload.answerB },
+        timer: payload.timer
+      }))
     }
 
     const onBetPlaced = (payload: any) => {
-      setGameState(prev => ({ ...(prev || {}), phase: payload.phase, betsCount: payload.betsCount }))
+      setGameState(prev => ({ ...(prev || {}), phase: payload.phase, betsCount: payload.betsCount, timer: payload.timer }))
     }
 
     const onRoundRevealed = (payload: any) => {
@@ -78,6 +87,19 @@ export default function GameClient({ gameId }: { gameId: string }) {
     const onReconnected = (payload: any) => {
       setGameState(payload.game || payload)
       setJoinPending(false)
+      setJoinStatus('approved')
+    }
+
+    const onGamePaused = (payload: any) => {
+      setGameState(prev => ({ ...(prev || {}), paused: true, timer: { ...(prev?.timer || {}), timerRemainingMs: payload.timerRemainingMs, timerPaused: true } }))
+    }
+
+    const onGameResumed = (payload: any) => {
+      setGameState(prev => ({ ...(prev || {}), paused: false, timer: { ...(prev?.timer || {}), timerRemainingMs: payload.timerRemainingMs, timerPaused: false } }))
+    }
+
+    const onTimerUpdated = (payload: any) => {
+      setGameState(prev => ({ ...(prev || {}), timer: { ...(prev?.timer || {}), timerRemainingMs: payload.timerRemainingMs } }))
     }
 
     const onError = (payload: any) => {
@@ -115,6 +137,9 @@ export default function GameClient({ gameId }: { gameId: string }) {
     socket.on('player_joined', onPlayerJoined)
     socket.on('player_disconnected', onPlayerDisconnected)
     socket.on('error', onError)
+    socket.on('game_paused', onGamePaused)
+    socket.on('game_resumed', onGameResumed)
+    socket.on('timer_updated', onTimerUpdated)
 
     // Join pool/game AFTER listeners are registered
     socket.emit("join_game", {
@@ -141,6 +166,9 @@ export default function GameClient({ gameId }: { gameId: string }) {
       socket.off('player_joined', onPlayerJoined)
       socket.off('player_disconnected', onPlayerDisconnected)
       socket.off('error', onError)
+      socket.off('game_paused', onGamePaused)
+      socket.off('game_resumed', onGameResumed)
+      socket.off('timer_updated', onTimerUpdated)
       clearTimeout(timeout)
     }
   }, [socket, isConnected, gameId, session])
@@ -173,7 +201,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
 
       {/* 2D Overlay */}
       <div className="absolute inset-0 z-10 pointer-events-none">
-        <GameUI gameState={gameState} gameId={gameId} joinPending={joinPending} joinError={joinError} />
+        <GameUI gameState={gameState} gameId={gameId} joinPending={joinPending} joinError={joinError} joinStatus={joinStatus} />
       </div>
     </div>
   )

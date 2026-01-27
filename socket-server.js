@@ -22,6 +22,73 @@ const { schemas, validateInput, sanitizeString } = require("./lib/validation-sch
 const prisma = new PrismaClient();
 const gameManager = new GameStateManager();
 const rateLimiter = new RateLimiter(100, 10000); // 100 requests per 10 seconds
+const connectedSockets = new Map(); // userId -> socketId
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'ray@gmail.com';
+
+function isAdminUser(user) {
+  return !!(user?.isAdmin || user?.email === ADMIN_EMAIL);
+}
+
+function getTimerState(game) {
+  if (!game) return { timerKind: null, timerPaused: false, timerRemainingMs: null };
+  const remaining = game.timerPaused
+    ? (game.timerRemainingMs || 0)
+    : Math.max(0, (game.timerEndsAt || Date.now()) - Date.now());
+  return {
+    timerKind: game.timerKind || null,
+    timerPaused: !!game.timerPaused,
+    timerRemainingMs: remaining
+  };
+}
+
+function buildAdminPoolState(game) {
+  const timer = getTimerState(game);
+  return {
+    poolId: game.poolId,
+    ownerId: game.ownerId,
+    phase: game.phase,
+    players: game.players.map(p => ({
+      userId: p.userId,
+      name: p.name,
+      points: p.points,
+      isConnected: p.isConnected
+    })),
+    pendingRequests: (game.pendingJoinRequests || []).map(r => ({
+      userId: r.userId,
+      name: r.name,
+      requestedAt: r.requestedAt
+    })),
+    currentRound: game.currentRound ? {
+      question: game.currentRound.question,
+      answerer: game.currentRound.answerer
+    } : null,
+    timer
+  };
+}
+
+function emitAdminPools() {
+  const pools = gameManager.getAllGames().map(buildAdminPoolState);
+  io.to('admins').emit('admin_pools', { pools });
+  console.log(`[Admins] Emitted admin_pools to admins room (${pools.length} pools)`);
+}
+
+function emitAdminJoinRequests() {
+  const requests = gameManager.getAllPendingRequests();
+  io.to('admins').emit('admin_join_requests', { requests });
+  console.log(`[Admins] Emitted admin_join_requests to admins room (${requests.length} requests)`);
+
+  // Fallback: emit directly to sockets with admin flag in case room join failed
+  try {
+    for (const [uid, sid] of connectedSockets.entries()) {
+      const s = io.sockets.sockets.get(sid);
+      if (s && (s.userIsAdmin || s.tokenIsAdmin)) {
+        s.emit('admin_join_requests', { requests });
+      }
+    }
+  } catch (err) {
+    console.error('[Admins] Fallback emit failed:', err);
+  }
+}
 
 // Validate environment
 if (!process.env.NEXTAUTH_SECRET) {
@@ -55,7 +122,8 @@ gameManager.on('round_started', ({ poolId, game }) => {
     roundNumber: game.roundNumber,
     question: game.currentRound.question,
     answererId: game.currentRound.answerer,
-    phase: game.phase
+    phase: game.phase,
+    timer: getTimerState(game)
   });
 });
 
@@ -63,7 +131,8 @@ gameManager.on('answer_submitted', ({ poolId, game }) => {
   io.to(poolId).emit('answer_submitted', {
     answerA: game.currentRound.answerA,
     answerB: game.currentRound.answerB,
-    phase: game.phase
+    phase: game.phase,
+    timer: getTimerState(game)
   });
 });
 
@@ -71,7 +140,8 @@ gameManager.on('bet_placed', ({ poolId, game }) => {
   // Don't reveal who bet what, just update status
   io.to(poolId).emit('bet_placed', {
     betsCount: Object.keys(game.bets).length,
-    phase: game.phase
+    phase: game.phase,
+    timer: getTimerState(game)
   });
 });
 
@@ -88,6 +158,15 @@ gameManager.on('round_revealed', ({ poolId, game, winners }) => {
       isConnected: p.isConnected
     }))
   });
+  // Emit global leaderboard update (top players) after round reveal
+  (async () => {
+    try {
+      const top = await prisma.user.findMany({ orderBy: { points: 'desc' }, take: 20, select: { id: true, name: true, points: true } });
+      io.emit('leaderboard_updated', { leaderboard: top.map(u => ({ userId: u.id, name: u.name, points: u.points })) });
+    } catch (err) {
+      console.error('[Leaderboard] Failed to fetch top users:', err);
+    }
+  })();
 });
 
 gameManager.on('game_finished', ({ poolId, game }) => {
@@ -102,12 +181,41 @@ gameManager.on('game_finished', ({ poolId, game }) => {
 
   // Persist final results to database
   persistGameResults(poolId, game).catch(console.error);
+  // Emit global leaderboard update when game finishes
+  (async () => {
+    try {
+      const top = await prisma.user.findMany({ orderBy: { points: 'desc' }, take: 20, select: { id: true, name: true, points: true } });
+      io.emit('leaderboard_updated', { leaderboard: top.map(u => ({ userId: u.id, name: u.name, points: u.points })) });
+    } catch (err) {
+      console.error('[Leaderboard] Failed to fetch top users after finish:', err);
+    }
+  })();
 });
 
 // Socket connection handler
 io.on("connection", async (socket) => {
   const userId = socket.userId;
   const userEmail = socket.userEmail;
+  let user = null;
+  try {
+    user = await prisma.user.findUnique({ where: { id: userId } });
+  } catch (dbErr) {
+    console.error('[DB] Failed to fetch user on socket connection, proceeding with token/email fallback:', dbErr.message || dbErr);
+  }
+
+  const userIsAdmin = isAdminUser(user);
+  // Check admin: token flag, DB flag, or email match
+  const isAdminByEmail = (userEmail === ADMIN_EMAIL);
+  socket.userIsAdmin = !!socket.tokenIsAdmin || userIsAdmin || isAdminByEmail;
+  socket.userName = sanitizeString(user?.name || socket.userEmail || 'Player');
+  connectedSockets.set(userId, socket.id);
+
+  console.log(`[Admin Check] tokenIsAdmin=${!!socket.tokenIsAdmin}, userIsAdmin=${userIsAdmin}, emailMatch=${isAdminByEmail}, final=${socket.userIsAdmin}`);
+
+  if (socket.userIsAdmin) {
+    socket.join('admins');
+    console.log(`[Admins] Socket ${socket.id} (user ${userEmail || userId}) joined admins room`);
+  }
 
   console.log(`[Connection] User ${userEmail} (${userId}) connected`);
 
@@ -145,9 +253,13 @@ io.on("connection", async (socket) => {
         return socket.emit('error', { message: validation.error });
       }
 
-      // Check if user already in a game
+      if (!socket.userIsAdmin) {
+        return socket.emit('error', { message: 'Only admin can create pools' });
+      }
+
+      // Check if user already in a game (only count active/connected players)
       const existingGames = gameManager.getAllGames();
-      const alreadyInGame = existingGames.some(g => g.players.some(p => p.userId === userId));
+      const alreadyInGame = existingGames.some(g => g.players.some(p => p.userId === userId && p.isConnected));
       if (alreadyInGame) {
         return socket.emit('error', { message: 'Already in a game' });
       }
@@ -155,17 +267,21 @@ io.on("connection", async (socket) => {
       // Generate pool ID
       const poolId = `pool-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-      // Get user info
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        return socket.emit('error', { message: 'User not found' });
+      // Get user info (fallback if DB is unavailable)
+      let user = null;
+      try {
+        user = await prisma.user.findUnique({ where: { id: userId } });
+      } catch (dbErr) {
+        console.error('[DB] Failed to fetch user in create_pool, using fallback:', dbErr.message || dbErr);
       }
+      const fallbackName = sanitizeString(user?.name || user?.email || socket.userEmail || 'Player');
+      const fallbackPoints = typeof user?.points === 'number' ? user.points : gameManager.INITIAL_POINTS;
 
       // Create pool
-      const game = gameManager.createPool(poolId);
+      const game = gameManager.createPool(poolId, userId);
       
       // Auto-join creator
-      gameManager.addPlayer(poolId, userId, socket.id, sanitizeString(user.name || user.email), user.points);
+      gameManager.addPlayer(poolId, userId, socket.id, fallbackName, fallbackPoints);
 
       socket.join(poolId);
 
@@ -174,7 +290,9 @@ io.on("connection", async (socket) => {
         game: sanitizeGameState(game, userId)
       });
 
-      console.log(`[Pool] ${user.name} created pool ${poolId}`);
+      emitAdminPools();
+
+      console.log(`[Pool] ${fallbackName} created pool ${poolId}`);
 
     } catch (error) {
       console.error('[create_pool] Error:', error);
@@ -199,22 +317,31 @@ io.on("connection", async (socket) => {
         return socket.emit('error', { message: 'Unauthorized' });
       }
 
-      // Get user from database
-      const user = await prisma.user.findUnique({ where: { id: userId } });
-      if (!user) {
-        return socket.emit('error', { message: 'User not found' });
+      // Get user from database (fallback if DB is unavailable)
+      let user = null;
+      try {
+        user = await prisma.user.findUnique({ where: { id: userId } });
+      } catch (dbErr) {
+        console.error('[DB] Failed to fetch user in join_game, using fallback:', dbErr.message || dbErr);
       }
+      const fallbackName = sanitizeString(user?.name || user?.email || socket.userEmail || 'Player');
+      const fallbackPoints = typeof user?.points === 'number' ? user.points : gameManager.INITIAL_POINTS;
 
-      // Check if user already in a game
+      // Check if user already in an active game (exclude finished games and disconnected players)
       const existingGames = gameManager.getAllGames();
-      const alreadyInGame = existingGames.some(g => g.players.some(p => p.userId === userId));
+      const alreadyInGame = existingGames.some(g => 
+        g.phase !== 'finished' && g.players.some(p => p.userId === userId && p.isConnected)
+      );
       if (alreadyInGame) {
         return socket.emit('error', { message: 'Already in a game' });
       }
 
-      // Create pool if it doesn't exist (allows custom pool IDs like "test1")
+      // Auto-create pool if it doesn't exist (first-join creates the room)
       if (!gameManager.getGame(gameId)) {
-        gameManager.createPool(gameId);
+        // Create pool with requesting user as owner
+        const newGame = gameManager.createPool(gameId, userId);
+        console.log(`[Pool] Auto-created pool ${gameId} for user ${userId}`);
+        emitAdminPools();
       }
 
       // Add to pool
@@ -222,8 +349,8 @@ io.on("connection", async (socket) => {
         gameId,
         userId,
         socket.id,
-        sanitizeString(user.name || user.email),
-        user.points
+        fallbackName,
+        fallbackPoints
       );
 
       socket.join(gameId);
@@ -233,19 +360,23 @@ io.on("connection", async (socket) => {
         game: sanitizeGameState(game, userId)
       });
 
+      emitAdminPools();
+
       io.to(gameId).emit('player_joined', {
         userId,
-        playerName: sanitizeString(user.name || user.email),
+        playerName: fallbackName,
         playersCount: game.players.length
       });
 
-      console.log(`[Pool] ${user.name} joined pool ${gameId}. Players: ${game.players.length}/6`);
+      console.log(`[Pool] ${fallbackName} joined pool ${gameId}. Players: ${game.players.length}/6`);
 
     } catch (error) {
       console.error('[join_game] Error:', error);
       socket.emit('error', { message: error.message });
     }
   });
+
+
 
   /**
    * Submit answer
@@ -324,6 +455,125 @@ io.on("connection", async (socket) => {
     }
   });
 
+
+
+  /**
+   * Admin: start game
+   */
+  socket.on('start_game', async (data) => {
+    try {
+      if (!socket.userIsAdmin) {
+        return socket.emit('error', { message: 'Admin only' });
+      }
+
+      const validation = validateInput(schemas.adminGame, data);
+      if (!validation.success) {
+        return socket.emit('error', { message: validation.error });
+      }
+
+      const { gameId } = validation.data;
+      const game = gameManager.startGame(gameId);
+      io.to(gameId).emit('game_started', {
+        poolId: gameId,
+        phase: game.phase
+      });
+      emitAdminPools();
+    } catch (error) {
+      console.error('[start_game] Error:', error);
+      socket.emit('error', { message: error.message });
+    }
+  });
+
+  /**
+   * Admin: pause game timer
+   */
+  socket.on('pause_game', async (data) => {
+    try {
+      if (!socket.userIsAdmin) {
+        return socket.emit('error', { message: 'Admin only' });
+      }
+
+      const validation = validateInput(schemas.adminGame, data);
+      if (!validation.success) {
+        return socket.emit('error', { message: validation.error });
+      }
+
+      const { gameId } = validation.data;
+      const remaining = gameManager.pauseGame(gameId);
+      io.to(gameId).emit('game_paused', { poolId: gameId, timerRemainingMs: remaining });
+      emitAdminPools();
+    } catch (error) {
+      console.error('[pause_game] Error:', error);
+      socket.emit('error', { message: error.message });
+    }
+  });
+
+  /**
+   * Admin: resume game timer
+   */
+  socket.on('resume_game', async (data) => {
+    try {
+      if (!socket.userIsAdmin) {
+        return socket.emit('error', { message: 'Admin only' });
+      }
+
+      const validation = validateInput(schemas.adminGame, data);
+      if (!validation.success) {
+        return socket.emit('error', { message: validation.error });
+      }
+
+      const { gameId } = validation.data;
+      const remaining = gameManager.resumeGame(gameId);
+      io.to(gameId).emit('game_resumed', { poolId: gameId, timerRemainingMs: remaining });
+      emitAdminPools();
+    } catch (error) {
+      console.error('[resume_game] Error:', error);
+      socket.emit('error', { message: error.message });
+    }
+  });
+
+  /**
+   * Admin: add time to timer
+   */
+  socket.on('add_time', async (data) => {
+    try {
+      if (!socket.userIsAdmin) {
+        return socket.emit('error', { message: 'Admin only' });
+      }
+
+      const validation = validateInput(schemas.addTime, data);
+      if (!validation.success) {
+        return socket.emit('error', { message: validation.error });
+      }
+
+      const { gameId, userId: targetUserId, seconds } = validation.data;
+      const remaining = gameManager.addTime(gameId, seconds, targetUserId || null);
+      io.to(gameId).emit('timer_updated', { poolId: gameId, timerRemainingMs: remaining });
+      emitAdminPools();
+    } catch (error) {
+      console.error('[add_time] Error:', error);
+      socket.emit('error', { message: error.message });
+    }
+  });
+
+  /**
+   * Admin: get pool list
+   */
+  socket.on('admin_get_pools', () => {
+    if (!socket.userIsAdmin) return;
+    const pools = gameManager.getAllGames().map(buildAdminPoolState);
+    socket.emit('admin_pools', { pools });
+  });
+
+  /**
+   * Admin: get pending join requests
+   */
+  socket.on('admin_get_join_requests', () => {
+    if (!socket.userIsAdmin) return;
+    const requests = gameManager.getAllPendingRequests();
+    socket.emit('admin_join_requests', { requests });
+  });
+
   /**
    * Get available pools
    */
@@ -348,6 +598,10 @@ io.on("connection", async (socket) => {
    */
   socket.on('disconnect', () => {
     console.log(`[Disconnect] User ${userEmail} (${userId}) disconnected`);
+    connectedSockets.delete(userId);
+    gameManager.removePendingRequestsForUser(userId);
+    emitAdminJoinRequests();
+    emitAdminPools();
 
     // Find which pool the user was in
     const games = gameManager.getAllGames();
@@ -370,11 +624,14 @@ io.on("connection", async (socket) => {
  * Sanitize game state for client (hide sensitive info)
  */
 function sanitizeGameState(game, requestingUserId) {
+  const timer = getTimerState(game);
   const sanitized = {
     poolId: game.poolId,
     phase: game.phase,
     roundNumber: game.roundNumber,
     totalRounds: game.totalRounds,
+    paused: !!game.paused,
+    timer,
     players: game.players.map(p => ({
       userId: p.userId,
       name: p.name,
