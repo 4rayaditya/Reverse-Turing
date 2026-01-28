@@ -5,6 +5,7 @@ import { useSocket } from "@/components/providers/socket-provider"
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { motion, AnimatePresence } from "framer-motion"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -441,7 +442,7 @@ export function GameUI({
                  `}>
                      <div className="w-full h-full rounded-full bg-[#050b14] overflow-hidden relative">
                          {/* Image */}
-                         <img src={avatarUrl} alt={player.name} className="w-full h-full object-cover" />
+                         <Image src={avatarUrl} alt={player.name} fill className="object-cover" unoptimized />
                          
                          {/* Glitch Overlay (optional CSS could go here) */}
                          {!player.isConnected && (
