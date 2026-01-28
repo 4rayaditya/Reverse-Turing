@@ -222,7 +222,14 @@ export function GameUI({
               <DropdownMenuContent className="w-56 bg-slate-900 border-slate-700 text-slate-200">
                 <DropdownMenuLabel>Game Menu</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-slate-700" />
-                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(gameId) && toast({ title: "Copied!", description: "Game ID copied to clipboard" })}>
+                <DropdownMenuItem onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(gameId)
+                    toast({ title: "Copied!", description: "Game ID copied to clipboard" })
+                  } catch (e) {
+                    toast({ title: "Copy failed", description: "Unable to copy Room ID" })
+                  }
+                }}>
                   Copy Room ID
                 </DropdownMenuItem>
                 <DropdownMenuItem disabled>Report Issue</DropdownMenuItem>
