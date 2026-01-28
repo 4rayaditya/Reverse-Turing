@@ -34,7 +34,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
     }
 
     const onRoundStarted = (payload: any) => {
-      setGameState(prev => ({
+      setGameState((prev: any) => ({
         ...(prev || {}),
         phase: payload.phase,
         roundNumber: payload.roundNumber,
@@ -48,7 +48,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
     }
 
     const onAnswerSubmitted = (payload: any) => {
-      setGameState(prev => ({
+      setGameState((prev: any) => ({
         ...(prev || {}),
         phase: payload.phase,
         currentRound: { ...(prev?.currentRound || {}), answerA: payload.answerA, answerB: payload.answerB },
@@ -57,11 +57,11 @@ export default function GameClient({ gameId }: { gameId: string }) {
     }
 
     const onBetPlaced = (payload: any) => {
-      setGameState(prev => ({ ...(prev || {}), phase: payload.phase, betsCount: payload.betsCount, timer: payload.timer }))
+      setGameState((prev: any) => ({ ...(prev || {}), phase: payload.phase, betsCount: payload.betsCount, timer: payload.timer }))
     }
 
     const onRoundRevealed = (payload: any) => {
-      setGameState(prev => ({
+      setGameState((prev: any) => ({
         ...(prev || {}),
         phase: 'revealing',
         currentRound: {
@@ -81,7 +81,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
     }
 
     const onGameFinished = (payload: any) => {
-      setGameState(prev => ({ ...(prev || {}), phase: 'finished', finalRankings: payload.finalRankings }))
+      setGameState((prev: any) => ({ ...(prev || {}), phase: 'finished', finalRankings: payload.finalRankings }))
     }
 
     const onReconnected = (payload: any) => {
@@ -91,15 +91,15 @@ export default function GameClient({ gameId }: { gameId: string }) {
     }
 
     const onGamePaused = (payload: any) => {
-      setGameState(prev => ({ ...(prev || {}), paused: true, timer: { ...(prev?.timer || {}), timerRemainingMs: payload.timerRemainingMs, timerPaused: true } }))
+      setGameState((prev: any) => ({ ...(prev || {}), paused: true, timer: { ...(prev?.timer || {}), timerRemainingMs: payload.timerRemainingMs, timerPaused: true } }))
     }
 
     const onGameResumed = (payload: any) => {
-      setGameState(prev => ({ ...(prev || {}), paused: false, timer: { ...(prev?.timer || {}), timerRemainingMs: payload.timerRemainingMs, timerPaused: false } }))
+      setGameState((prev: any) => ({ ...(prev || {}), paused: false, timer: { ...(prev?.timer || {}), timerRemainingMs: payload.timerRemainingMs, timerPaused: false } }))
     }
 
     const onTimerUpdated = (payload: any) => {
-      setGameState(prev => ({ ...(prev || {}), timer: { ...(prev?.timer || {}), timerRemainingMs: payload.timerRemainingMs } }))
+      setGameState((prev: any) => ({ ...(prev || {}), timer: { ...(prev?.timer || {}), timerRemainingMs: payload.timerRemainingMs } }))
     }
 
     const onError = (payload: any) => {
@@ -109,7 +109,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
     }
 
     const onPlayerJoined = (payload: any) => {
-      setGameState(prev => {
+      setGameState((prev: any) => {
         const players = prev?.players ? [...prev.players] : []
         if (!players.find((p: any) => p.userId === payload.userId)) {
           players.push({ userId: payload.userId, name: payload.playerName, points: 1000, isConnected: true })
@@ -119,7 +119,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
     }
 
     const onPlayerDisconnected = (payload: any) => {
-      setGameState(prev => {
+      setGameState((prev: any) => {
         if (!prev?.players) return prev
         const players = prev.players.map((p: any) => p.userId === payload.userId ? { ...p, isConnected: false } : p)
         return { ...(prev || {}), players }
