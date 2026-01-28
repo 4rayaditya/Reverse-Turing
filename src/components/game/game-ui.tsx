@@ -499,10 +499,10 @@ export function GameUI({
           
           {gameState.phase === "betting" && hasBet && (
              <motion.div 
-                initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                className="bg-black/80 text-cyan-400 border border-cyan-500 px-8 py-3 rounded-full font-mono text-sm tracking-widest shadow-[0_0_20px_rgba(6,182,212,0.3)]"
+               initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+               className="bg-black/80 text-cyan-400 border border-cyan-500 px-8 py-3 rounded-full font-mono text-sm tracking-widest shadow-[0_0_20px_rgba(6,182,212,0.3)]"
              >
-                // BET LOCK_CONFIRMED: ${myBet?.amount}
+               {`BET LOCK_CONFIRMED: $${myBet?.amount}`}
              </motion.div>
           )}
 
