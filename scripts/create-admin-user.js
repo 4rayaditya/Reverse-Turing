@@ -13,7 +13,12 @@ async function main() {
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    console.log('User already exists:', existing.email);
+    // Update password and admin flag if user exists
+    const updated = await prisma.user.update({
+      where: { email },
+      data: { password: hash, isAdmin: email === 'ray@gmail.com' }
+    });
+    console.log('Updated existing user password:', updated.email, 'id=', updated.id, 'admin=', updated.isAdmin);
     await prisma.$disconnect();
     return;
   }
