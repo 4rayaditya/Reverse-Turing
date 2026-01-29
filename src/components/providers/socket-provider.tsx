@@ -13,6 +13,7 @@ type SocketContextType = {
 const SocketContext = createContext<SocketContextType>({
   socket: null,
   isConnected: false,
+  connectError: null,
 })
 
 export const useSocket = () => {
