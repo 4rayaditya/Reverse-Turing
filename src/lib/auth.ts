@@ -33,6 +33,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
+          console.log("[Auth] Attempting database connection...")
           const user = await db.user.findUnique({
             where: {
               email: credentials.email,
@@ -64,7 +65,8 @@ export const authOptions: NextAuthOptions = {
             isAdmin: user.isAdmin,
           }
         } catch (error) {
-          console.error("[Auth] Error during authorization:", error)
+          console.error("[Auth] Database error:", error.message)
+          console.error("[Auth] Error stack:", error.stack)
           return null
         }
       },
