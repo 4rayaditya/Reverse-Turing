@@ -6,6 +6,10 @@ build/
 .env
 .env.local
 .env.*.local
+.env.production
+.env.vercel-production
+.env.development
+.env.test
 npm-debug.log*
 yarn-error.log*
 .DS_Store
