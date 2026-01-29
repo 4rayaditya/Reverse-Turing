@@ -17,6 +17,7 @@ const { PrismaClient } = require("@prisma/client");
 const { GameStateManager } = require("./lib/game-state-manager");
 const { socketAuthMiddleware, RateLimiter } = require("./lib/socket-auth");
 const { schemas, validateInput, sanitizeString } = require("./lib/validation-schemas");
+const http = require('http');
 
 // Initialize services
 const prisma = new PrismaClient();
@@ -97,8 +98,27 @@ if (!process.env.NEXTAUTH_SECRET) {
 }
 
 
-// Create Socket.io server with security
-const io = new Server(process.env.PORT || 3003, {
+// Create HTTP server and attach Socket.io with security
+const PORT = process.env.PORT || 3003;
+const HOST = '0.0.0.0';
+
+const server = http.createServer((req, res) => {
+  // simple health check endpoint
+  if (req.method === 'GET' && req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('OK');
+    return;
+  }
+  res.writeHead(404);
+  res.end();
+});
+
+server.listen(PORT, HOST, () => {
+  const addr = server.address();
+  console.log(`[Server] HTTP server listening on ${addr.address}:${addr.port}`);
+});
+
+const io = new Server(server, {
   cors: {
     origin: process.env.ALLOWED_ORIGINS?.split(',') || ["http://localhost:3000"],
     credentials: true,
@@ -109,7 +129,7 @@ const io = new Server(process.env.PORT || 3003, {
   pingInterval: 25000
 });
 
-console.log(`[Server] Socket.io server starting on port ${process.env.PORT || 3003}`);
+console.log(`[Server] Socket.io server starting on port ${PORT}`);
 console.log(`[Server] Allowed origins: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
 console.log('[Server] AI enabled: false (local templates)');
 
