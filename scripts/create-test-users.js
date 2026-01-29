@@ -13,6 +13,12 @@ async function main() {
     { username: 'player4', email: 'player4@test.com', password: 'password123' },
     { username: 'player5', email: 'player5@test.com', password: 'password123' },
     { username: 'player6', email: 'player6@test.com', password: 'password123' },
+    { username: 'player7', email: 'player7@test.com', password: 'password123' },
+    { username: 'player8', email: 'player8@test.com', password: 'password123' },
+    { username: 'player9', email: 'player9@test.com', password: 'password123' },
+    { username: 'player10', email: 'player10@test.com', password: 'password123' },
+    { username: 'player11', email: 'player11@test.com', password: 'password123' },
+    { username: 'player12', email: 'player12@test.com', password: 'password123' },
   ];
 
   for (const userData of users) {
@@ -38,7 +44,7 @@ async function main() {
 
   console.log('\nAll test users created successfully!');
   console.log('\nYou can login with:');
-  console.log('Email: player1@test.com to player6@test.com');
+  console.log('Email: player1@test.com to player12@test.com');
   console.log('Password: password123');
 }
 

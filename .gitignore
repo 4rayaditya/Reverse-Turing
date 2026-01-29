@@ -22,3 +22,4 @@ prisma/dev.db
 public/.cache
 /.turbo
 .vercel
+.env.render
