@@ -19,11 +19,7 @@ export async function GET() {
         email: true,
         username: true,
         isAdmin: true,
-        password: {
-          select: {
-            length: true
-          }
-        }
+        password: true
       }
     })
 
