@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react"
 type SocketContextType = {
   socket: Socket | null
   isConnected: boolean
+  connectError: string | null
 }
 
 const SocketContext = createContext<SocketContextType>({
@@ -21,6 +22,7 @@ export const useSocket = () => {
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
+  const [connectError, setConnectError] = useState<string | null>(null)
   const { data: session } = useSession()
 
   useEffect(() => {
@@ -48,6 +50,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     socketInstance.on("connect", () => {
       setIsConnected(true)
+      setConnectError(null)
       console.log("✅ Socket connected!")
     })
 
@@ -56,8 +59,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       console.log("❌ Socket disconnected:", reason)
     })
 
-    socketInstance.on("connect_error", (error) => {
-      console.error("❌ Socket connection error:", error.message)
+    socketInstance.on("connect_error", (error: any) => {
+      const msg = error?.message || String(error)
+      setConnectError(msg)
+      console.error("❌ Socket connection error:", msg)
     })
 
     socketInstance.on("reconnected", (data) => {
@@ -81,7 +86,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   }, [session])
 
   return (
-    <SocketContext.Provider value={{ socket, isConnected }}>
+    <SocketContext.Provider value={{ socket, isConnected, connectError }}>
       {children}
     </SocketContext.Provider>
   )

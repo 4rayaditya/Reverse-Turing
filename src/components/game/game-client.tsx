@@ -7,7 +7,7 @@ import { GameCanvas } from "./game-canvas"
 import { GameUI } from "./game-ui"
 
 export default function GameClient({ gameId }: { gameId: string }) {
-  const { socket, isConnected } = useSocket()
+  const { socket, isConnected, connectError } = useSocket()
   const { data: session } = useSession()
   const [gameState, setGameState] = useState<any>(null)
   const [joinPending, setJoinPending] = useState(false)
@@ -178,7 +178,8 @@ export default function GameClient({ gameId }: { gameId: string }) {
       <div className="h-full flex items-center justify-center text-white bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
-          <p className="text-lg">Connecting to game server...</p>
+          <p className="text-lg">{connectError ? `Connection error: ${connectError}` : 'Connecting to game server...'}</p>
+          {connectError && <p className="text-sm text-slate-400 mt-2">Open browser console and server logs for details.</p>}
         </div>
       </div>
     )
