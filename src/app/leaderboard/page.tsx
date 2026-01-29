@@ -15,7 +15,8 @@ interface LeaderboardEntry {
 
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
-  const { socket } = useSocket()
+  const [isLive, setIsLive] = useState(false)
+  const { socket, isConnected } = useSocket()
 
   useEffect(() => {
     let mounted = true
@@ -32,20 +33,36 @@ export default function LeaderboardPage() {
     }
 
     fetchLeaderboard()
+    // Refresh every 10 seconds as backup
+    const interval = setInterval(fetchLeaderboard, 10000)
 
-    return () => { mounted = false }
+    return () => { 
+      mounted = false
+      clearInterval(interval)
+    }
   }, [])
 
   useEffect(() => {
-    if (!socket) return
+    if (!socket) {
+      setIsLive(false)
+      return
+    }
+
+    setIsLive(isConnected)
 
     const onLeaderboard = (payload: any) => {
-      if (payload?.leaderboard) setEntries(payload.leaderboard)
+      console.log('🔴 LIVE UPDATE:', payload)
+      if (payload?.leaderboard) {
+        setEntries(payload.leaderboard)
+        // Flash the live indicator
+        setIsLive(false)
+        setTimeout(() => setIsLive(true), 150)
+      }
     }
 
     socket.on('leaderboard_updated', onLeaderboard)
     return () => { socket.off('leaderboard_updated', onLeaderboard) }
-  }, [socket])
+  }, [socket, isConnected])
 
   const getRankColor = (rank: number) => {
     if (rank === 1) return 'text-yellow-400'
@@ -66,9 +83,19 @@ export default function LeaderboardPage() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-900/20 via-transparent to-transparent" />
       
       <div className="relative z-10 max-w-6xl mx-auto">
-        <h1 className="text-5xl font-bold mb-12 text-center text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-400 to-blue-400">
-          🏆 Global Leaderboard
-        </h1>
+        <div className="flex items-center justify-between mb-12">
+          <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-400 to-blue-400">
+            🏆 Global Leaderboard
+          </h1>
+          
+          {/* Live Indicator */}
+          <div className="flex items-center gap-2 bg-slate-900/60 px-4 py-2 rounded-full border border-slate-700">
+            <div className={`w-3 h-3 rounded-full transition-all duration-150 ${isLive ? 'bg-green-500 animate-pulse' : 'bg-slate-600'}`} />
+            <span className="text-sm font-semibold tracking-wide">
+              {isLive ? 'LIVE' : 'OFFLINE'}
+            </span>
+          </div>
+        </div>
 
         <div className="space-y-3">
           {entries.length === 0 ? (

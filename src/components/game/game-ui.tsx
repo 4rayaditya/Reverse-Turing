@@ -364,12 +364,12 @@ export function GameUI({
                                 <div className="flex-grow flex items-center justify-center text-center font-['JetBrains_Mono'] text-sm md:text-base text-gray-200 leading-relaxed min-h-[100px]">
                                     {gameState.currentRound?.answerA}
                                 </div>
-                                {gameState.phase === "betting" && !isAnswerer && selectedBet && (
+                                {gameState.phase === "betting" && !isAnswerer && !hasBet && selectedBet && (
                                     <button 
                                         onClick={() => handleBet('A')}
                                         className="mt-4 w-full py-3 bg-cyan-900/30 border border-cyan-500/50 hover:bg-cyan-500 text-cyan-400 hover:text-white font-bold rounded flex items-center justify-center gap-2 transition-all uppercase tracking-wider text-sm shadow-[0_0_10px_rgba(6,182,212,0.1)] hover:shadow-[0_0_20px_rgba(6,182,212,0.4)]"
                                     >
-                                        BET ${selectedBet}
+                                        BET ${selectedBet} ON A
                                     </button>
                                 )}
                              </div>
@@ -394,12 +394,12 @@ export function GameUI({
                                 <div className="flex-grow flex items-center justify-center text-center font-['JetBrains_Mono'] text-sm md:text-base text-gray-200 leading-relaxed min-h-[100px]">
                                     {gameState.currentRound?.answerB}
                                 </div>
-                                {gameState.phase === "betting" && !isAnswerer && selectedBet && (
+                                {gameState.phase === "betting" && !isAnswerer && !hasBet && selectedBet && (
                                     <button 
                                         onClick={() => handleBet('B')}
                                         className="mt-4 w-full py-3 bg-purple-900/30 border border-purple-500/50 hover:bg-purple-500 text-purple-400 hover:text-white font-bold rounded flex items-center justify-center gap-2 transition-all uppercase tracking-wider text-sm shadow-[0_0_10px_rgba(168,85,247,0.1)] hover:shadow-[0_0_20px_rgba(168,85,247,0.4)]"
                                     >
-                                        BET ${selectedBet}
+                                        BET ${selectedBet} ON B
                                     </button>
                                 )}
                              </div>
@@ -474,8 +474,8 @@ export function GameUI({
           {gameState.phase === "betting" && !isAnswerer && !hasBet && (
              <div className="bg-[#0f172a]/80 backdrop-blur-xl border border-cyan-500/20 px-6 py-4 rounded-2xl flex gap-3 shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
                  <div className="flex flex-col justify-center items-end mr-4 border-r border-white/10 pr-4">
-                     <span className="text-[10px] text-slate-400 uppercase tracking-widest">Wager</span>
-                     <span className="text-xl text-white font-bold font-mono">AMOUNT</span>
+                     <span className="text-[10px] text-slate-400 uppercase tracking-widest">Select</span>
+                     <span className="text-xl text-white font-bold font-mono">WAGER</span>
                  </div>
                  {[10, 50, 100, 500, 'MAX'].map((val, idx) => {
                      const amt = val === 'MAX' ? currentPlayer?.points : (val as number)
@@ -496,12 +496,9 @@ export function GameUI({
                          </button>
                      )
                  })}
-                 <Button 
-                    className="ml-4 h-14 px-6 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl uppercase tracking-wider shadow-[0_0_20px_rgba(6,182,212,0.3)] disabled:opacity-50 disabled:shadow-none"
-                    disabled={!selectedBet}
-                 >
-                    PLACE BET
-                 </Button>
+                 <div className="ml-4 flex items-center">
+                   <span className="text-cyan-400 text-sm font-mono">Then click A or B above ↑</span>
+                 </div>
              </div>
           )}
           

@@ -397,8 +397,20 @@ io.on("connection", async (socket) => {
 
       console.log(`[Pool] ${fallbackName} joined pool ${gameId}. Players: ${game.players.length}/6`);
 
-      // DISABLED: Auto-start removed - admin must manually start games
-      // Admin must use 'start_game' event to begin
+      // Auto-start when pool reaches 6 players (full capacity)
+      if (game.players.length === 6 && game.phase === 'waiting') {
+        console.log(`[Pool] Pool ${gameId} is full (6/6). Auto-starting game...`);
+        try {
+          const startedGame = gameManager.startGame(gameId);
+          io.to(gameId).emit('game_started', {
+            poolId: gameId,
+            phase: startedGame.phase
+          });
+          emitAdminPools();
+        } catch (err) {
+          console.error(`[Pool] Auto-start failed for ${gameId}:`, err.message);
+        }
+      }
 
     } catch (error) {
       console.error('[join_game] Error:', error);
