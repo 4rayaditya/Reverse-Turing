@@ -7,17 +7,18 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 
 interface Pool {
-  id: string
-  name: string
-  status: string
-  _count: { users: number }
+  poolId: string
+  players: number
+  maxPlayers: number
+  phase: string
 }
 
 export default function LobbyPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [pools, setPools] = useState<Pool[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [newPoolName, setNewPoolName] = useState("")
   const isAdmin = session?.user?.email === "ray@gmail.com" || session?.user?.isAdmin
 
   useEffect(() => {
@@ -26,45 +27,18 @@ export default function LobbyPage() {
     }
   }, [status, router])
 
-  useEffect(() => {
-    fetchPools()
-  }, [])
-
-  const fetchPools = async () => {
-    try {
-      const res = await fetch("/api/pools")
-      if (res.ok) {
-        setPools(await res.json())
-      }
-    } catch (error) {
-      console.error("Failed to fetch pools:", error)
-    } finally {
-      setLoading(false)
+  const handleCreatePool = () => {
+    if (!newPoolName.trim()) {
+      alert("Please enter a pool name")
+      return
     }
+    // Simply navigate to the new pool ID - socket server will auto-create it
+    const poolId = `pool-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    router.push(`/game/${poolId}`)
   }
 
-  const handleCreatePool = async () => {
-    const name = prompt("Enter pool name:")
-    if (!name) return
-
-    const res = await fetch("/api/pools", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    })
-
-    if (res.ok) {
-      const pool = await res.json()
-      router.push(`/game/${pool.id}`)
-    }
-  }
-
-  if (status === "loading" || loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
-      </div>
-    )
+  const handleJoinPool = (poolId: string) => {
+    router.push(`/game/${poolId}`)
   }
 
   return (
@@ -104,48 +78,60 @@ export default function LobbyPage() {
           </div>
         </div>
 
-        {/* Create Pool Button */}
-        <motion.button
-          whileHover={{ scale: isAdmin ? 1.02 : 1 }}
-          whileTap={{ scale: isAdmin ? 0.98 : 1 }}
-          onClick={isAdmin ? handleCreatePool : undefined}
-          className={`w-full mb-6 p-6 rounded-xl font-semibold text-lg transition-all shadow-lg ${
-            isAdmin
-              ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700"
-              : "bg-slate-800/60 text-slate-400 cursor-not-allowed"
-          }`}
-        >
-          {isAdmin ? "+ Create New Game Pool" : "Only admin can create pools"}
-        </motion.button>
-
-        {/* Active Pools */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {pools.map((pool) => (
-            <motion.div
-              key={pool.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              whileHover={{ y: -5 }}
-              className="backdrop-blur-xl bg-slate-900/40 rounded-xl border border-purple-500/20 p-6 cursor-pointer hover:border-purple-500/40 transition-all"
-              onClick={() => router.push(`/game/${pool.id}`)}
+        {/* Create Pool Section */}
+        <div className="mb-8 p-6 rounded-xl bg-slate-900/40 border border-purple-500/20">
+          <h2 className="text-2xl font-bold text-white mb-4">Create New Game</h2>
+          <div className="flex gap-4">
+            <input
+              type="text"
+              value={newPoolName}
+              onChange={(e) => setNewPoolName(e.target.value)}
+              placeholder="Enter pool name (e.g., Pool 1, Game Room A)"
+              className="flex-1 px-4 py-3 bg-slate-800/50 text-white rounded-lg border border-purple-500/20 focus:border-purple-500/40 focus:outline-none"
+            />
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleCreatePool}
+              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all"
             >
-              <h3 className="text-xl font-bold text-white mb-2">{pool.name}</h3>
-              <div className="flex justify-between items-center text-sm text-slate-400">
-                <span>{pool._count.users} players</span>
-                <span
-                  className={`px-2 py-1 rounded ${
-                    pool.status === "active"
-                      ? "bg-green-500/20 text-green-400"
-                      : pool.status === "waiting"
-                      ? "bg-yellow-500/20 text-yellow-400"
-                      : "bg-slate-700/50 text-slate-400"
-                  }`}
-                >
-                  {pool.status}
-                </span>
-              </div>
-            </motion.div>
-          ))}
+              Create & Join
+            </motion.button>
+          </div>
+          <p className="text-slate-400 text-sm mt-3">
+            💡 Tip: Share the pool URL with other players so they can join!
+          </p>
+        </div>
+
+        {/* Quick Join Presets */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-white mb-4">Quick Join</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {['Pool-1', 'Pool-2', 'Pool-3', 'Pool-4'].map((name) => (
+              <motion.div
+                key={name}
+                whileHover={{ y: -5 }}
+                className="backdrop-blur-xl bg-slate-900/40 rounded-xl border border-purple-500/20 p-6 cursor-pointer hover:border-purple-500/40 transition-all"
+                onClick={() => handleJoinPool(name)}
+              >
+                <h3 className="text-xl font-bold text-white mb-2">{name}</h3>
+                <p className="text-slate-400 text-sm">Click to join or create</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Instructions */}
+        <div className="p-6 rounded-xl bg-slate-900/40 border border-purple-500/20">
+          <h3 className="text-xl font-bold text-white mb-3">How to Play</h3>
+          <ol className="text-slate-300 space-y-2 list-decimal list-inside">
+            <li>Create a pool or join an existing one</li>
+            <li>Wait for admin to start the game (minimum 2 players)</li>
+            <li>Take turns answering questions - try to sound human!</li>
+            <li>Bet on whether answers are from AI or human</li>
+            <li>Earn points by guessing correctly</li>
+          </ol>
+        </div>
         </div>
 
         {pools.length === 0 && (

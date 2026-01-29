@@ -348,11 +348,12 @@ io.on("connection", async (socket) => {
       const fallbackPoints = typeof user?.points === 'number' ? user.points : gameManager.INITIAL_POINTS;
 
       // Check if user already in an active game (exclude finished games and disconnected players)
+      // Allow admins to join multiple games if needed for testing
       const existingGames = gameManager.getAllGames();
       const alreadyInGame = existingGames.some(g => 
         g.phase !== 'finished' && g.players.some(p => p.userId === userId && p.isConnected)
       );
-      if (alreadyInGame) {
+      if (alreadyInGame && !socket.userIsAdmin) {
         return socket.emit('error', { message: 'Already in a game' });
       }
 
@@ -362,6 +363,12 @@ io.on("connection", async (socket) => {
         const newGame = gameManager.createPool(gameId, userId);
         console.log(`[Pool] Auto-created pool ${gameId} for user ${userId}`);
         emitAdminPools();
+      }
+
+      // Check if pool is full before adding
+      const existingGame = gameManager.getGame(gameId);
+      if (existingGame && existingGame.players.length >= 6) {
+        return socket.emit('error', { message: 'Pool is full (6/6 players)' });
       }
 
       // Add to pool
