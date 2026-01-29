@@ -6,10 +6,27 @@ export async function GET() {
     const top = await prisma.user.findMany({
       orderBy: { points: 'desc' },
       take: 50,
-      select: { id: true, name: true, points: true }
+      select: { 
+        id: true, 
+        username: true, 
+        name: true, 
+        points: true,
+        gamesPlayed: true,
+        wins: true
+      }
     })
 
-    return NextResponse.json({ leaderboard: top.map(u => ({ userId: u.id, name: u.name, points: u.points })) })
+    return NextResponse.json({ 
+      leaderboard: top.map((u, index) => ({ 
+        rank: index + 1,
+        userId: u.id, 
+        name: u.username || u.name || 'Unknown', 
+        points: u.points,
+        gamesPlayed: u.gamesPlayed,
+        wins: u.wins,
+        winRate: u.gamesPlayed > 0 ? ((u.wins / u.gamesPlayed) * 100).toFixed(1) : '0.0'
+      })) 
+    })
   } catch (error) {
     console.error('[API] /api/leaderboard error:', error)
     return NextResponse.json({ error: 'Failed to fetch leaderboard' }, { status: 500 })

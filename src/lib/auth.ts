@@ -71,8 +71,11 @@ export const authOptions: NextAuthOptions = {
             isAdmin: user.isAdmin,
           }
         } catch (error) {
-          console.error("[Auth] Database error:", error.message)
-          console.error("[Auth] Error stack:", error.stack)
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          const errorStack = error instanceof Error ? error.stack : undefined
+          
+          console.error("[Auth] Database error:", errorMessage)
+          if (errorStack) console.error("[Auth] Error stack:", errorStack)
           return null
         }
       },

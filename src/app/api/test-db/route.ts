@@ -48,12 +48,15 @@ export async function GET() {
     })
 
   } catch (error) {
-    console.error("[DB Test] Error:", error.message)
-    console.error("[DB Test] Stack:", error.stack)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+    
+    console.error("[DB Test] Error:", errorMessage)
+    if (errorStack) console.error("[DB Test] Stack:", errorStack)
 
     return NextResponse.json({
       success: false,
-      error: error.message,
+      error: errorMessage,
       timestamp: new Date().toISOString()
     }, { status: 500 })
   }
