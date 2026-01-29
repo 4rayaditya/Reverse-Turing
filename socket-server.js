@@ -390,16 +390,8 @@ io.on("connection", async (socket) => {
 
       console.log(`[Pool] ${fallbackName} joined pool ${gameId}. Players: ${game.players.length}/6`);
 
-      // Auto-start the game when minimum players reached
-      try {
-        if (game.players.length >= 2 && game.phase === 'waiting') {
-          console.log(`[AutoStart] Pool ${gameId} reached ${game.players.length} players — starting game`);
-          gameManager.startGame(gameId);
-          emitAdminPools();
-        }
-      } catch (err) {
-        console.error('[AutoStart] Failed to auto-start game:', err);
-      }
+      // DISABLED: Auto-start removed - admin must manually start games
+      // Admin must use 'start_game' event to begin
 
     } catch (error) {
       console.error('[join_game] Error:', error);
@@ -594,6 +586,48 @@ io.on("connection", async (socket) => {
     if (!socket.userIsAdmin) return;
     const pools = gameManager.getAllGames().map(buildAdminPoolState);
     socket.emit('admin_pools', { pools });
+  });
+
+  /**
+   * Admin: reset/clear pool
+   */
+  socket.on('reset_pool', async (data) => {
+    try {
+      if (!socket.userIsAdmin) {
+        return socket.emit('error', { message: 'Admin only' });
+      }
+
+      const validation = validateInput(schemas.adminGame, data);
+      if (!validation.success) {
+        return socket.emit('error', { message: validation.error });
+      }
+
+      const { gameId } = validation.data;
+      const game = gameManager.resetPool(gameId);
+      
+      // Notify all clients in the pool
+      io.to(gameId).emit('pool_reset', {
+        poolId: gameId,
+        message: 'Pool has been reset by admin'
+      });
+
+      // Force disconnect all sockets from this room
+      const room = io.sockets.adapter.rooms.get(gameId);
+      if (room) {
+        for (const socketId of room) {
+          const clientSocket = io.sockets.sockets.get(socketId);
+          if (clientSocket) {
+            clientSocket.leave(gameId);
+          }
+        }
+      }
+
+      emitAdminPools();
+      console.log(`[Admin] Pool ${gameId} reset`);
+    } catch (error) {
+      console.error('[reset_pool] Error:', error);
+      socket.emit('error', { message: error.message });
+    }
   });
 
   /**
