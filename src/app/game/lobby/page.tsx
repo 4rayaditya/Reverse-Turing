@@ -17,9 +17,8 @@ export default function LobbyPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [pools, setPools] = useState<Pool[]>([])
-  const [loading, setLoading] = useState(false)
   const [newPoolName, setNewPoolName] = useState("")
-  const isAdmin = session?.user?.email === "ray@gmail.com" || session?.user?.isAdmin
+  const isAdmin = session?.user?.email === "ray@gmail.com" || (session?.user as any)?.isAdmin
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -32,7 +31,6 @@ export default function LobbyPage() {
       alert("Please enter a pool name")
       return
     }
-    // Simply navigate to the new pool ID - socket server will auto-create it
     const poolId = `pool-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     router.push(`/game/${poolId}`)
   }
@@ -52,7 +50,7 @@ export default function LobbyPage() {
             </h1>
             <p className="text-slate-400 mt-2">Welcome, {session?.user?.name || "Player"}</p>
           </div>
-          
+
           <div className="flex gap-4">
             <Link href="/leaderboard">
               <motion.button
@@ -63,7 +61,7 @@ export default function LobbyPage() {
                 Leaderboard
               </motion.button>
             </Link>
-            
+
             {isAdmin && (
               <Link href="/admin">
                 <motion.button
@@ -98,9 +96,7 @@ export default function LobbyPage() {
               Create & Join
             </motion.button>
           </div>
-          <p className="text-slate-400 text-sm mt-3">
-            💡 Tip: Share the pool URL with other players so they can join!
-          </p>
+          <p className="text-slate-400 text-sm mt-3">💡 Tip: Share the pool URL with other players so they can join!</p>
         </div>
 
         {/* Quick Join Presets */}
@@ -131,7 +127,6 @@ export default function LobbyPage() {
             <li>Bet on whether answers are from AI or human</li>
             <li>Earn points by guessing correctly</li>
           </ol>
-        </div>
         </div>
 
         {pools.length === 0 && (
