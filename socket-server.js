@@ -460,20 +460,25 @@ io.on("connection", async (socket) => {
    * Place bet
    */
   socket.on('place_bet', async (data) => {
+    console.log(`[place_bet] Received from user ${userId}:`, JSON.stringify(data));
     try {
       const validation = validateInput(schemas.bet, data);
       if (!validation.success) {
+        console.error('[place_bet] Validation failed:', validation.error);
         return socket.emit('error', { message: validation.error });
       }
 
       const { gameId, userId: requestUserId, amount, guess } = validation.data;
+      console.log(`[place_bet] Validated - gameId:${gameId}, userId:${requestUserId}, amount:${amount}, guess:${guess}`);
 
       // Verify userId matches authenticated user
       if (requestUserId !== userId) {
+        console.error(`[place_bet] User ID mismatch: ${requestUserId} !== ${userId}`);
         return socket.emit('error', { message: 'Unauthorized' });
       }
 
       // Place bet with database update
+      console.log(`[place_bet] Calling gameManager.placeBet...`);
       await gameManager.placeBet(
         gameId,
         userId,
@@ -489,10 +494,10 @@ io.on("connection", async (socket) => {
 
       socket.emit('bet_confirmed', { amount, guess });
 
-      console.log(`[Bet] User ${userId} bet ${amount} on ${guess} in pool ${gameId}`);
+      console.log(`[place_bet] SUCCESS - User ${userId} bet ${amount} on ${guess} in pool ${gameId}`);
 
     } catch (error) {
-      console.error('[place_bet] Error:', error);
+      console.error('[place_bet] ERROR:', error.message, error.stack);
       socket.emit('error', { message: error.message });
     }
   });

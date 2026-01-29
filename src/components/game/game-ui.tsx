@@ -151,8 +151,12 @@ export function GameUI({
   }
 
   const handleBet = (choice: 'A' | 'B') => {
-      if (!socket || !userId || !selectedBet) return
-      socket.emit("place_bet", { gameId, userId, amount: selectedBet, guess: choice })
+      if (!socket || !userId || !selectedBet) {
+        console.error('[GameUI] Cannot place bet - missing:', { socket: !!socket, userId, selectedBet });
+        return;
+      }
+      console.log(`[GameUI] Placing bet: ${selectedBet} on ${choice}`);
+      socket.emit("place_bet", { gameId, userId, amount: selectedBet, guess: choice });
   }
 
   const handleSubmitAnswer = () => {
@@ -511,14 +515,29 @@ export function GameUI({
              </motion.div>
           )}
 
-          {gameState.phase === "revealing" && gameState.lastResult?.winners && (
+          {gameState.phase === "revealing" && (
               <motion.div 
                  initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-                 className="flex flex-col items-center"
+                 className="flex flex-col items-center gap-3"
               >
-                  <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black px-10 py-4 rounded-xl font-bold text-xl shadow-[0_0_50px_rgba(234,179,8,0.5)] border-2 border-white/20">
-                      WINNERS: {gameState.lastResult.winners.map((w: any) => w.name).join(', ')}
-                  </div>
+                  {gameState.lastResult?.winners && gameState.lastResult.winners.length > 0 ? (
+                    <>
+                      <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black px-8 py-3 rounded-xl font-bold text-lg shadow-[0_0_50px_rgba(234,179,8,0.5)] border-2 border-white/20 uppercase tracking-wide">
+                          🎉 Winners This Round
+                      </div>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {gameState.lastResult.winners.map((w: any, idx: number) => (
+                          <div key={idx} className="bg-black/60 border border-yellow-500/50 text-yellow-400 px-4 py-2 rounded-lg font-mono text-sm">
+                            {w.name} +${w.won}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-8 py-3 rounded-xl font-bold text-lg shadow-[0_0_50px_rgba(239,68,68,0.5)] border-2 border-white/20 uppercase tracking-wide">
+                        😬 No Winners - All Lost!
+                    </div>
+                  )}
               </motion.div>
           )}
       </div>
