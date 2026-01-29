@@ -25,35 +25,47 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        console.log("[Auth] Authorize called with email:", credentials?.email)
+        
         if (!credentials?.email || !credentials.password) {
+          console.log("[Auth] Missing credentials")
           return null
         }
 
-        const user = await db.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
-        })
+        try {
+          const user = await db.user.findUnique({
+            where: {
+              email: credentials.email,
+            },
+          })
 
-        if (!user) {
+          if (!user) {
+            console.log("[Auth] User not found:", credentials.email)
+            return null
+          }
+
+          console.log("[Auth] User found, checking password...")
+          const isPasswordValid = await compare(
+            credentials.password,
+            user.password
+          )
+
+          if (!isPasswordValid) {
+            console.log("[Auth] Invalid password for:", credentials.email)
+            return null
+          }
+
+          console.log("[Auth] Authentication successful for:", credentials.email)
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.username,
+            username: user.username,
+            isAdmin: user.isAdmin,
+          }
+        } catch (error) {
+          console.error("[Auth] Error during authorization:", error)
           return null
-        }
-
-        const isPasswordValid = await compare(
-          credentials.password,
-          user.password
-        )
-
-        if (!isPasswordValid) {
-          return null
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.username,
-          username: user.username,
-          isAdmin: user.isAdmin,
         }
       },
     }),

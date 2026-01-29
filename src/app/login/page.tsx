@@ -19,18 +19,31 @@ export default function LoginPage() {
     setError("")
     setLoading(true)
     
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    })
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      })
 
-    setLoading(false)
-    
-    if (result?.ok) {
-      router.push("/game/lobby")
-    } else {
-      setError("Invalid email or password")
+      setLoading(false)
+      
+      console.log("Sign in result:", result)
+      
+      if (result?.ok) {
+        router.push("/game/lobby")
+      } else {
+        // Show more detailed error
+        const errorMsg = result?.error 
+          ? `Login failed: ${result.error}` 
+          : "Invalid email or password"
+        setError(errorMsg)
+        console.error("Sign in failed:", result)
+      }
+    } catch (err) {
+      setLoading(false)
+      console.error("Sign in error:", err)
+      setError("An error occurred during sign in")
     }
   }
 
