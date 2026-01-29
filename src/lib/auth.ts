@@ -34,6 +34,12 @@ export const authOptions: NextAuthOptions = {
 
         try {
           console.log("[Auth] Attempting database connection...")
+          console.log("[Auth] Prisma client available:", !!db)
+          
+          // Test connection first
+          await db.$queryRaw`SELECT 1`
+          console.log("[Auth] Database connection test passed")
+          
           const user = await db.user.findUnique({
             where: {
               email: credentials.email,
