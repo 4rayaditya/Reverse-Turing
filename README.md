@@ -4,7 +4,6 @@
 
 > ⚡ **Built for live events** - Zero paid services required for 12 players.
 
----
 
 ## 🎮 Game Features
 
