@@ -12,7 +12,11 @@
  */
 
 require('dotenv').config();
-const { Server } = require("socket.io");
+
+// Configure PostgreSQL to avoid prepared statement issues with poolers
+process.env.PGSSLMODE = 'require';
+
+// Initialize services
 const { PrismaClient } = require("@prisma/client");
 const { GameStateManager } = require("./lib/game-state-manager");
 const { socketAuthMiddleware, RateLimiter } = require("./lib/socket-auth");
@@ -20,7 +24,10 @@ const { schemas, validateInput, sanitizeString } = require("./lib/validation-sch
 const http = require('http');
 
 // Initialize services
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DATABASE_URL,
+  log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"]
+});
 const gameManager = new GameStateManager();
 const rateLimiter = new RateLimiter(100, 10000); // 100 requests per 10 seconds
 const connectedSockets = new Map(); // userId -> socketId
