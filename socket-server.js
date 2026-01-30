@@ -15,6 +15,7 @@ require('dotenv').config();
 
 // Configure PostgreSQL to avoid prepared statement issues with poolers
 process.env.PGSSLMODE = 'require';
+const { Server } = require("socket.io");
 
 // Initialize services
 const { PrismaClient } = require("@prisma/client");
