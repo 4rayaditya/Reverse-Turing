@@ -26,16 +26,12 @@ const http = require('http');
 
 // Initialize services with PgBouncer compatibility (disable prepared statements)
 let prisma = new PrismaClient({
-  datasourceUrl: process.env.DATABASE_URL,
   log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-  // Disable prepared statements for PgBouncer transaction pooling mode
-  adapter: undefined,
-  // Use direct queries without prepared statements
-  __internal: {
-    engine: {
-      enableRawQueries: true
-    }
-  }
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
 });
 // Disable prepared statements globally for PgBouncer
 if (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('pgbouncer')) {
@@ -62,15 +58,7 @@ async function runWithReconnect(operation) {
         console.warn('[DB] Error during prisma disconnect:', e);
       }
       prisma = new PrismaClient({
-        datasourceUrl: process.env.DATABASE_URL,
         log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-        // Disable prepared statements for PgBouncer
-        adapter: undefined,
-        __internal: {
-          engine: {
-            enableRawQueries: true
-          }
-        }
       });
       // retry once
       return await operation(prisma);
