@@ -6,6 +6,13 @@ declare global {
 
 let prisma: PrismaClient = globalThis.prisma || new PrismaClient({
   log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+  // Disable prepared statements for PgBouncer compatibility
+  adapter: undefined as any,
+  __internal: {
+    engine: {
+      enableRawQueries: true
+    }
+  } as any
 })
 
 export const db = prisma
@@ -29,6 +36,13 @@ export async function runWithReconnect<T>(operation: (p: PrismaClient) => Promis
       }
       prisma = new PrismaClient({
         log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+        // Disable prepared statements for PgBouncer
+        adapter: undefined as any,
+        __internal: {
+          engine: {
+            enableRawQueries: true
+          }
+        } as any
       })
       if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma
       // retry once

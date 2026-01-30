@@ -24,11 +24,23 @@ const { socketAuthMiddleware, RateLimiter } = require("./lib/socket-auth");
 const { schemas, validateInput, sanitizeString } = require("./lib/validation-schemas");
 const http = require('http');
 
-// Initialize services
+// Initialize services with PgBouncer compatibility (disable prepared statements)
 let prisma = new PrismaClient({
   datasourceUrl: process.env.DATABASE_URL,
-  log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"]
+  log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+  // Disable prepared statements for PgBouncer transaction pooling mode
+  adapter: undefined,
+  // Use direct queries without prepared statements
+  __internal: {
+    engine: {
+      enableRawQueries: true
+    }
+  }
 });
+// Disable prepared statements globally for PgBouncer
+if (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('pgbouncer')) {
+  console.log('[DB] PgBouncer detected - prepared statements disabled');
+}
 const gameManager = new GameStateManager();
 const rateLimiter = new RateLimiter(100, 10000); // 100 requests per 10 seconds
 const connectedSockets = new Map(); // userId -> socketId
@@ -51,7 +63,14 @@ async function runWithReconnect(operation) {
       }
       prisma = new PrismaClient({
         datasourceUrl: process.env.DATABASE_URL,
-        log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"]
+        log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+        // Disable prepared statements for PgBouncer
+        adapter: undefined,
+        __internal: {
+          engine: {
+            enableRawQueries: true
+          }
+        }
       });
       // retry once
       return await operation(prisma);
