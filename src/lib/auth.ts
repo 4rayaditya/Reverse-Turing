@@ -1,7 +1,7 @@
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
-import { db } from "@/lib/db"
+import { db, runWithReconnect } from "@/lib/db"
 import { compare } from "bcryptjs"
 import { z } from "zod"
 import jwt from "jsonwebtoken"
@@ -36,15 +36,15 @@ export const authOptions: NextAuthOptions = {
           console.log("[Auth] Attempting database connection...")
           console.log("[Auth] Prisma client available:", !!db)
           
-          // Test connection first
-          await db.$queryRaw`SELECT 1`
+          // Test connection first (use reconnect-aware helper)
+          await runWithReconnect(p => p.$queryRaw`SELECT 1` as any)
           console.log("[Auth] Database connection test passed")
           
-          const user = await db.user.findUnique({
+          const user = await runWithReconnect(p => p.user.findUnique({
             where: {
               email: credentials.email,
             },
-          })
+          }))
 
           if (!user) {
             console.log("[Auth] User not found:", credentials.email)

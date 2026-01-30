@@ -25,7 +25,7 @@ const { schemas, validateInput, sanitizeString } = require("./lib/validation-sch
 const http = require('http');
 
 // Initialize services
-const prisma = new PrismaClient({
+let prisma = new PrismaClient({
   datasourceUrl: process.env.DATABASE_URL,
   log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"]
 });
@@ -33,6 +33,32 @@ const gameManager = new GameStateManager();
 const rateLimiter = new RateLimiter(100, 10000); // 100 requests per 10 seconds
 const connectedSockets = new Map(); // userId -> socketId
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'ray@gmail.com';
+
+// Helper to run a Prisma operation and automatically reconnect once
+// if a prepared-statement / 42P05 error is encountered (common with poolers)
+async function runWithReconnect(operation) {
+  try {
+    return await operation(prisma);
+  } catch (err) {
+    const msg = err && (err.message || String(err)) || '';
+    const code = err && err.code;
+    if (String(msg).toLowerCase().includes('prepared statement') || code === '42P05') {
+      console.warn('[DB] Detected prepared-statement error, reconnecting Prisma client...');
+      try {
+        await prisma.$disconnect();
+      } catch (e) {
+        console.warn('[DB] Error during prisma disconnect:', e);
+      }
+      prisma = new PrismaClient({
+        datasourceUrl: process.env.DATABASE_URL,
+        log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"]
+      });
+      // retry once
+      return await operation(prisma);
+    }
+    throw err;
+  }
+}
 
 function isAdminUser(user) {
   return !!(user?.isAdmin || user?.email === ADMIN_EMAIL);
@@ -110,11 +136,24 @@ if (!process.env.NEXTAUTH_SECRET) {
 const PORT = process.env.PORT || 3003;
 const HOST = '0.0.0.0';
 
-const server = http.createServer((req, res) => {
-  // simple health check endpoint
-  if (req.method === 'GET' && req.url === '/') {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('OK');
+const server = http.createServer(async (req, res) => {
+  // Health check endpoint with DB ping to keep connection alive
+  if (req.method === 'GET' && (req.url === '/' || req.url === '/health')) {
+    try {
+      // Ping database to keep connection alive and test connectivity
+      await runWithReconnect(p => p.$queryRaw`SELECT 1`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        activeSockets: io.sockets.sockets.size
+      }));
+    } catch (err) {
+      console.error('[Health] DB ping failed:', err);
+      res.writeHead(503, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'error', message: 'Database unavailable' }));
+    }
     return;
   }
   res.writeHead(404);
@@ -140,6 +179,45 @@ const io = new Server(server, {
 console.log(`[Server] Socket.io server starting on port ${PORT}`);
 console.log(`[Server] Allowed origins: ${process.env.ALLOWED_ORIGINS || 'http://localhost:3000'}`);
 console.log('[Server] AI enabled: false (local templates)');
+
+// Self-ping mechanism to keep Render free tier active (pings every 40s)
+const SELF_PING_INTERVAL = 40000; // 40 seconds
+let selfPingTimer = null;
+
+if (process.env.RENDER_EXTERNAL_URL || process.env.RENDER) {
+  console.log('[KeepAlive] Render detected - enabling self-ping every 40s');
+  selfPingTimer = setInterval(async () => {
+    try {
+      const url = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+      const https = require('https');
+      const http = require('http');
+      const client = url.startsWith('https') ? https : http;
+      
+      client.get(`${url}/health`, (res) => {
+        if (res.statusCode === 200) {
+          console.log('[KeepAlive] Self-ping successful');
+        } else {
+          console.warn(`[KeepAlive] Self-ping returned ${res.statusCode}`);
+        }
+      }).on('error', (err) => {
+        console.error('[KeepAlive] Self-ping failed:', err.message);
+      });
+    } catch (err) {
+      console.error('[KeepAlive] Self-ping error:', err);
+    }
+  }, SELF_PING_INTERVAL);
+}
+
+// Periodic DB keepalive query (every 30s) to prevent connection timeouts
+const DB_KEEPALIVE_INTERVAL = 30000; // 30 seconds
+let dbKeepaliveTimer = setInterval(async () => {
+  try {
+    await runWithReconnect(p => p.$queryRaw`SELECT 1`);
+    console.log('[DB] Keepalive query successful');
+  } catch (err) {
+    console.error('[DB] Keepalive query failed:', err.message);
+  }
+}, DB_KEEPALIVE_INTERVAL);
 
 // Apply authentication middleware
 io.use(socketAuthMiddleware(process.env.NEXTAUTH_SECRET));
@@ -189,7 +267,7 @@ gameManager.on('round_revealed', ({ poolId, game, winners }) => {
   // Emit global leaderboard update (top players) after round reveal
   (async () => {
     try {
-      const top = await prisma.user.findMany({ orderBy: { points: 'desc' }, take: 20, select: { id: true, name: true, points: true } });
+      const top = await runWithReconnect(p => p.user.findMany({ orderBy: { points: 'desc' }, take: 20, select: { id: true, name: true, points: true } }));
       io.emit('leaderboard_updated', { leaderboard: top.map(u => ({ userId: u.id, name: u.name, points: u.points })) });
     } catch (err) {
       console.error('[Leaderboard] Failed to fetch top users:', err);
@@ -212,7 +290,7 @@ gameManager.on('game_finished', ({ poolId, game }) => {
   // Emit global leaderboard update when game finishes
   (async () => {
     try {
-      const top = await prisma.user.findMany({ orderBy: { points: 'desc' }, take: 20, select: { id: true, name: true, points: true } });
+      const top = await runWithReconnect(p => p.user.findMany({ orderBy: { points: 'desc' }, take: 20, select: { id: true, name: true, points: true } }));
       io.emit('leaderboard_updated', { leaderboard: top.map(u => ({ userId: u.id, name: u.name, points: u.points })) });
     } catch (err) {
       console.error('[Leaderboard] Failed to fetch top users after finish:', err);
@@ -233,7 +311,7 @@ io.on("connection", async (socket) => {
   const userEmail = socket.userEmail;
   let user = null;
   try {
-    user = await prisma.user.findUnique({ where: { id: userId } });
+    user = await runWithReconnect(p => p.user.findUnique({ where: { id: userId } }));
   } catch (dbErr) {
     console.error('[DB] Failed to fetch user on socket connection, proceeding with token/email fallback:', dbErr.message || dbErr);
   }
@@ -300,7 +378,7 @@ io.on("connection", async (socket) => {
       // Get user info (fallback if DB is unavailable)
       let user = null;
       try {
-        user = await prisma.user.findUnique({ where: { id: userId } });
+        user = await runWithReconnect(p => p.user.findUnique({ where: { id: userId } }));
       } catch (dbErr) {
         console.error('[DB] Failed to fetch user in create_pool, using fallback:', dbErr.message || dbErr);
       }
@@ -350,7 +428,7 @@ io.on("connection", async (socket) => {
       // Get user from database (fallback if DB is unavailable)
       let user = null;
       try {
-        user = await prisma.user.findUnique({ where: { id: userId } });
+        user = await runWithReconnect(p => p.user.findUnique({ where: { id: userId } }));
       } catch (dbErr) {
         console.error('[DB] Failed to fetch user in join_game, using fallback:', dbErr.message || dbErr);
       }
@@ -488,10 +566,10 @@ io.on("connection", async (socket) => {
         amount,
         guess,
         async (userId, newPoints) => {
-          await prisma.user.update({
+          await runWithReconnect(p => p.user.update({
             where: { id: userId },
             data: { points: Math.max(0, newPoints) } // Ensure never negative
-          });
+          }));
         }
       );
 
@@ -769,14 +847,14 @@ async function persistGameResults(poolId, game) {
   try {
     // Update all player points
     for (const player of game.players) {
-      await prisma.user.update({
+      await runWithReconnect(p => p.user.update({
         where: { id: player.userId },
         data: {
           points: Math.max(0, player.points),
           gamesPlayed: { increment: 1 },
           ...(player.rank === 1 && { wins: { increment: 1 } })
         }
-      });
+      }));
     }
 
     console.log(`[Database] Persisted game results for pool ${poolId}`);
@@ -790,6 +868,10 @@ async function persistGameResults(poolId, game) {
  */
 process.on('SIGTERM', async () => {
   console.log('[Server] SIGTERM received, shutting down gracefully');
+  
+  // Clear timers
+  if (selfPingTimer) clearInterval(selfPingTimer);
+  if (dbKeepaliveTimer) clearInterval(dbKeepaliveTimer);
   
   // Notify all connected clients
   io.emit('server_shutdown', { message: 'Server is restarting. Reconnect in 10 seconds.' });
@@ -807,6 +889,8 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   console.log('[Server] SIGINT received, shutting down');
+  if (selfPingTimer) clearInterval(selfPingTimer);
+  if (dbKeepaliveTimer) clearInterval(dbKeepaliveTimer);
   await prisma.$disconnect();
   process.exit(0);
 });
