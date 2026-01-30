@@ -41,7 +41,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       auth: {
         token: token || ''
       },
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
