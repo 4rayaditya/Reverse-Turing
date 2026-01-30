@@ -9,6 +9,7 @@ let prisma: PrismaClient = globalThis.prisma || new PrismaClient({
 })
 
 export const db = prisma
+export { prisma }
 
 if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma
 
