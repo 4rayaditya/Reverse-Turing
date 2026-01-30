@@ -153,10 +153,12 @@ export function GameUI({
   const handleBet = (choice: 'A' | 'B') => {
       if (!socket || !userId || !selectedBet) {
         console.error('[GameUI] Cannot place bet - missing:', { socket: !!socket, userId, selectedBet });
+        toast({ title: "Cannot place bet", description: "Missing required information", variant: "destructive" });
         return;
       }
       console.log(`[GameUI] Placing bet: ${selectedBet} on ${choice}`);
       socket.emit("place_bet", { gameId, userId, amount: selectedBet, guess: choice });
+      toast({ title: "Bet Placed!", description: `$${selectedBet} on option ${choice}` });
   }
 
   const handleSubmitAnswer = () => {

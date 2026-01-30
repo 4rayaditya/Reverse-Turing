@@ -60,6 +60,21 @@ export default function GameClient({ gameId }: { gameId: string }) {
       setGameState((prev: any) => ({ ...(prev || {}), phase: payload.phase, betsCount: payload.betsCount, timer: payload.timer }))
     }
 
+    const onBetConfirmed = (payload: any) => {
+      // Update user's own bet in gameState
+      setGameState((prev: any) => ({
+        ...(prev || {}),
+        bets: {
+          ...(prev?.bets || {}),
+          [session.user.id]: {
+            amount: payload.amount,
+            guess: payload.guess
+          }
+        }
+      }))
+      console.log('[GameClient] Bet confirmed:', payload)
+    }
+
     const onRoundRevealed = (payload: any) => {
       setGameState((prev: any) => ({
         ...(prev || {}),
@@ -131,6 +146,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
     socket.on('round_started', onRoundStarted)
     socket.on('answer_submitted', onAnswerSubmitted)
     socket.on('bet_placed', onBetPlaced)
+    socket.on('bet_confirmed', onBetConfirmed)
     socket.on('round_revealed', onRoundRevealed)
     socket.on('game_finished', onGameFinished)
     socket.on('reconnected', onReconnected)
@@ -160,6 +176,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
       socket.off('round_started', onRoundStarted)
       socket.off('answer_submitted', onAnswerSubmitted)
       socket.off('bet_placed', onBetPlaced)
+      socket.off('bet_confirmed', onBetConfirmed)
       socket.off('round_revealed', onRoundRevealed)
       socket.off('game_finished', onGameFinished)
       socket.off('reconnected', onReconnected)

@@ -860,6 +860,11 @@ function sanitizeGameState(game, requestingUserId) {
     }
   }
 
+  // Include bets object so UI can check which users have bet
+  if (game.bets) {
+    sanitized.bets = game.bets;
+  }
+
   return sanitized;
 }
 
