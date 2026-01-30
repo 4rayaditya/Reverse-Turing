@@ -43,6 +43,7 @@ export default function GameClient({ gameId }: { gameId: string }) {
           question: payload.question,
           answerer: payload.answererId
         },
+        bets: {}, // Clear bets from previous round
         timer: payload.timer
       }))
     }
@@ -61,18 +62,28 @@ export default function GameClient({ gameId }: { gameId: string }) {
     }
 
     const onBetConfirmed = (payload: any) => {
-      // Update user's own bet in gameState
-      setGameState((prev: any) => ({
-        ...(prev || {}),
-        bets: {
-          ...(prev?.bets || {}),
-          [session.user.id]: {
-            amount: payload.amount,
-            guess: payload.guess
+      // Update user's own bet in gameState and deduct points immediately
+      setGameState((prev: any) => {
+        const updatedPlayers = prev?.players?.map((p: any) => {
+          if (p.userId === session.user.id) {
+            return { ...p, points: p.points - payload.amount };
           }
-        }
-      }))
-      console.log('[GameClient] Bet confirmed:', payload)
+          return p;
+        }) || [];
+
+        return {
+          ...(prev || {}),
+          bets: {
+            ...(prev?.bets || {}),
+            [session.user.id]: {
+              amount: payload.amount,
+              guess: payload.guess
+            }
+          },
+          players: updatedPlayers
+        };
+      });
+      console.log('[GameClient] Bet confirmed:', payload);
     }
 
     const onRoundRevealed = (payload: any) => {
