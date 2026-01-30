@@ -23,9 +23,24 @@ DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT].supabase.co:6543/post
 
 ### Render Environment Variables
 ```
-DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT].supabase.co:6543/postgres?pgbouncer=true
+DATABASE_URL=postgresql://postgres.[PROJECT]:[PASSWORD]@aws-0-us-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true
 PORT=3003
+NEXTAUTH_SECRET=[same-as-vercel]
+ADMIN_EMAIL=ray@gmail.com
+ALLOWED_ORIGINS=https://reverse-turing-aljm.vercel.app,https://reverse-turing-1.onrender.com
 ```
+
+**CRITICAL**: The DATABASE_URL format for Supabase pooler connections is:
+```
+postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true
+```
+
+NOT the old format: `postgresql://postgres:[PASSWORD]@db.[PROJECT].supabase.co:6543/...`
+
+To get the correct connection string:
+1. Go to Supabase Dashboard → Project Settings → Database
+2. Copy the **Transaction pooler** connection string (port 6543)
+3. Add `?pgbouncer=true` to the end
 
 ## Key Changes Made
 

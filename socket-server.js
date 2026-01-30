@@ -15,6 +15,17 @@ require('dotenv').config();
 
 // Configure PostgreSQL to avoid prepared statement issues with poolers
 process.env.PGSSLMODE = 'require';
+
+// Log environment check (mask sensitive data)
+const dbUrl = process.env.DATABASE_URL;
+if (!dbUrl) {
+  console.error('[ERROR] DATABASE_URL environment variable is not set!');
+  process.exit(1);
+}
+console.log('[ENV] DATABASE_URL configured:', dbUrl.replace(/:[^:@]+@/, ':****@'));
+console.log('[ENV] NEXTAUTH_SECRET configured:', !!process.env.NEXTAUTH_SECRET);
+console.log('[ENV] PORT:', process.env.PORT || 3003);
+
 const { Server } = require("socket.io");
 
 // Initialize services
