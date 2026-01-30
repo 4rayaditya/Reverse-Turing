@@ -277,12 +277,7 @@ io.on("connection", async (socket) => {
         return socket.emit('error', { message: 'Only admin can create pools' });
       }
 
-      // Check if user already in a game (only count active/connected players)
-      const existingGames = gameManager.getAllGames();
-      const alreadyInGame = existingGames.some(g => g.players.some(p => p.userId === userId && p.isConnected));
-      if (alreadyInGame) {
-        return socket.emit('error', { message: 'Already in a game' });
-      }
+      // REMOVED: Multi-game restriction - admin can create and join multiple pools
 
       // Generate pool ID
       const poolId = `pool-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -347,15 +342,8 @@ io.on("connection", async (socket) => {
       const fallbackName = sanitizeString(user?.name || user?.email || socket.userEmail || 'Player');
       const fallbackPoints = typeof user?.points === 'number' ? user.points : gameManager.INITIAL_POINTS;
 
-      // Check if user already in an active game (exclude finished games and disconnected players)
-      // Allow admins to join multiple games if needed for testing
-      const existingGames = gameManager.getAllGames();
-      const alreadyInGame = existingGames.some(g => 
-        g.phase !== 'finished' && g.players.some(p => p.userId === userId && p.isConnected)
-      );
-      if (alreadyInGame && !socket.userIsAdmin) {
-        return socket.emit('error', { message: 'Already in a game' });
-      }
+      // REMOVED: Multi-game restriction - players can now join multiple pools simultaneously
+      // This allows players to exit and rejoin different pools without issues
 
       // Auto-create pool if it doesn't exist (first-join creates the room)
       if (!gameManager.getGame(gameId)) {
