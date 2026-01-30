@@ -1,0 +1,23 @@
+services:
+  # Socket.IO Server
+  - type: web
+    name: reverse-turing-socket
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node socket-server.js
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: http://localhost:3000,https://reverse-turing-aljm.vercel.app,https://reverse-turing-1.onrender.com
+      - key: NEXTAUTH_SECRET
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: PORT
+        value: 3003
+      - key: NODE_ENV
+        value: production
+      - key: ADMIN_EMAIL
+        value: ray@gmail.com

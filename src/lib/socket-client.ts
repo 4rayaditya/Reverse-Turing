@@ -10,7 +10,7 @@ export const getSocket = (token?: string) => {
       auth: {
         token: token || '' // JWT token from NextAuth
       },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,

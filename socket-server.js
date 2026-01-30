@@ -214,6 +214,13 @@ gameManager.on('game_finished', ({ poolId, game }) => {
 
 // Socket connection handler
 io.on("connection", async (socket) => {
+  console.log('[Socket] Handshake:', {
+    origin: socket.handshake.headers.origin,
+    referer: socket.handshake.headers.referer,
+    transport: socket.conn.transport.name,
+    secure: socket.handshake.secure
+  });
+  
   const userId = socket.userId;
   const userEmail = socket.userEmail;
   let user = null;
