@@ -6,7 +6,7 @@ console.log('🔍 Testing current Render DATABASE_URL...\n');
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: 'postgresql://postgres:AdityaRay3464@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1'
+      url: 'postgresql://postgres:[YOUR-PASSWORD]@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1'
     }
   }
 });

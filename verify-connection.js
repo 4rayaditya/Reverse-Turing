@@ -4,7 +4,7 @@
 const { PrismaClient } = require('@prisma/client');
 
 // Replace this with your actual connection string from Supabase dashboard
-const YOUR_CORRECT_CONNECTION_STRING = 'postgresql://postgres.pvjlovvejtmrpryybyvg:AdityaRay3464@[YOUR-ACTUAL-REGION].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1';
+const YOUR_CORRECT_CONNECTION_STRING = 'postgresql://postgres.pvjlovvejtmrpryybyvg:[YOUR-PASSWORD]@[YOUR-ACTUAL-REGION].pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1';
 
 console.log('🔍 Verifying your Supabase connection string...\n');
 

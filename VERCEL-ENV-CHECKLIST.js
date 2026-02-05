@@ -7,15 +7,15 @@
  */
 
 // 1. DATABASE_URL (CRITICAL)
-// Value: postgresql://postgres:AdityaRay3464@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres?pgbouncer=true&connection_limit=1
+// Value: postgresql://postgres:[YOUR-PASSWORD]@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres?pgbouncer=true&connection_limit=1
 // Scope: Production
 
 // 2. DIRECT_URL (CRITICAL for migrations)
-// Value: postgresql://postgres:AdityaRay3464@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres
+// Value: postgresql://postgres:[YOUR-PASSWORD]@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres
 // Scope: Production
 
 // 3. SHADOW_DATABASE_URL (Recommended for migrations)
-// Value: postgresql://postgres:AdityaRay3464@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres
+// Value: postgresql://postgres:[YOUR-PASSWORD]@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres
 // Scope: Production
 
 // 4. NEXTAUTH_SECRET (CRITICAL - generate a new one for production!)

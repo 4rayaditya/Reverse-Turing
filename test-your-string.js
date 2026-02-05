@@ -1,7 +1,7 @@
 // Test the connection string you think is correct
 const { PrismaClient } = require('@prisma/client');
 
-const testUrl = 'postgresql://postgres:AdityaRay3464@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1';
+const testUrl = 'postgresql://postgres:[YOUR-PASSWORD]@aws-1-ap-south-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1';
 
 console.log('🔍 Testing your connection string...\n');
 console.log('URL:', testUrl.replace(/:AdityaRay3464@/, ':****@'));

@@ -8,13 +8,13 @@ To run these scripts against your **production database** (Supabase):
 
 1. Create a `.env.production` file:
 ```env
-DATABASE_URL="postgresql://postgres:AdityaRay3464@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres"
+DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres"
 ```
 
 2. Run scripts with production env:
 ```bash
 # Windows PowerShell
-$env:DATABASE_URL="postgresql://postgres:AdityaRay3464@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres"; node scripts/list-users.js
+$env:DATABASE_URL="postgresql://postgres:[YOUR-PASSWORD]@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres"; node scripts/list-users.js
 
 # Or temporarily modify .env before running
 ```

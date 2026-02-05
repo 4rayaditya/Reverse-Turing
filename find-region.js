@@ -12,7 +12,7 @@ const regions = [
 console.log('🔍 Finding your Supabase project region...\n');
 
 async function testRegion(region) {
-  const url = `postgresql://postgres:AdityaRay3464@${region}.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
+  const url = `postgresql://postgres:[YOUR-PASSWORD]@${region}.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`;
 
   const prisma = new PrismaClient({
     datasources: { db: { url } }

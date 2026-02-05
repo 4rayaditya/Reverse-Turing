@@ -20,7 +20,7 @@ Go to: https://vercel.com → Your Project → Settings → Environment Variable
 CRITICAL Variables that MUST be set for Production:
 
 ✓ DATABASE_URL
-  postgresql://postgres:AdityaRay3464@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres?pgbouncer=true&connection_limit=1
+  postgresql://postgres:[YOUR-PASSWORD]@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres?pgbouncer=true&connection_limit=1
 
 ✓ NEXTAUTH_SECRET
   7a661c61d3a3c8383c03af2dd808c8bd3f45a16b538cd38ed0784a82b6054385
@@ -30,7 +30,7 @@ CRITICAL Variables that MUST be set for Production:
   ⚠️  CRITICAL: Must be EXACTLY your Vercel domain with https://
 
 ✓ DIRECT_URL (for Prisma)
-  postgresql://postgres:AdityaRay3464@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres
+  postgresql://postgres:[YOUR-PASSWORD]@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres
 
 
 STEP 2: Common Mistakes

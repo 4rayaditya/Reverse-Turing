@@ -40,8 +40,8 @@ NEXT_PUBLIC_SOCKET_URL=https://reverse-turing-1.onrender.com
 ```env
 ALLOWED_ORIGINS=http://localhost:3000,https://reverse-turing-aljm.vercel.app,https://reverse-turing-1.onrender.com
 NEXTAUTH_SECRET=7a661c61d3a3c8383c03af2dd808c8bd3f45a16b538cd38ed0784a82b6054385
-DATABASE_URL=postgresql://postgres.pvjlovvejtmrpryybyvg:AdityaRay3464@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
-DIRECT_URL=postgresql://postgres:AdityaRay3464@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres.pvjlovvejtmrpryybyvg:[YOUR-PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
+DIRECT_URL=postgresql://postgres:[YOUR-PASSWORD]@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres
 PORT=3003
 NODE_ENV=production
 ADMIN_EMAIL=ray@gmail.com
@@ -61,8 +61,8 @@ ADMIN_EMAIL=ray@gmail.com
 NEXT_PUBLIC_SOCKET_URL=https://reverse-turing-1.onrender.com
 NEXTAUTH_SECRET=7a661c61d3a3c8383c03af2dd808c8bd3f45a16b538cd38ed0784a82b6054385
 NEXTAUTH_URL=https://reverse-turing-aljm.vercel.app
-DATABASE_URL=postgresql://postgres.pvjlovvejtmrpryybyvg:AdityaRay3464@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
-DIRECT_URL=postgresql://postgres:AdityaRay3464@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres
+DATABASE_URL=postgresql://postgres.pvjlovvejtmrpryybyvg:[YOUR-PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
+DIRECT_URL=postgresql://postgres:[YOUR-PASSWORD]@db.pvjlovvejtmrpryybyvg.supabase.co:5432/postgres
 ```
 
 5. Redeploy from **Deployments** tab
