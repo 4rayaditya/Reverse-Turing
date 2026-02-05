@@ -83,6 +83,14 @@ async function runWithReconnect(operation) {
   }
 }
 
+// Provide a default points updater for timeouts and round reveals
+gameManager.setGlobalUpdatePointsFn(async (userId, newPoints) => {
+  await runWithReconnect(p => p.user.update({
+    where: { id: userId },
+    data: { points: Math.max(0, newPoints) }
+  }));
+});
+
 function isAdminUser(user) {
   return !!(user?.isAdmin || user?.email === ADMIN_EMAIL);
 }
@@ -583,7 +591,7 @@ io.on("connection", async (socket) => {
 
       // Place bet with database update
       console.log(`[place_bet] Calling gameManager.placeBet...`);
-      await gameManager.placeBet(
+      const game = await gameManager.placeBet(
         gameId,
         userId,
         amount,
@@ -596,7 +604,8 @@ io.on("connection", async (socket) => {
         }
       );
 
-      socket.emit('bet_confirmed', { amount, guess });
+      const actualAmount = game?.bets?.[userId]?.amount ?? amount;
+      socket.emit('bet_confirmed', { amount: actualAmount, guess });
 
       console.log(`[place_bet] SUCCESS - User ${userId} bet ${amount} on ${guess} in pool ${gameId}`);
 
